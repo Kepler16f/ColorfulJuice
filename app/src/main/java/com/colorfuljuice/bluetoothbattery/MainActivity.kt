@@ -152,11 +152,12 @@ fun PermissionsRequiredScreen(onRequestPermissions: () -> Unit) {
             Text("Grant Permissions")
         }
         Spacer(modifier = Modifier.height(12.dp))
+        val context = androidx.compose.ui.platform.LocalContext.current
         OutlinedButton(
             onClick = {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 intent.data = android.net.Uri.fromParts("package", "com.colorfuljuice.bluetoothbattery", null)
-                startActivity(intent)
+                context.startActivity(intent)
             }
         ) {
             Text("Open Settings")

@@ -367,7 +367,7 @@ fun BatteryIndicator(batteryLevel: Int?) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         LinearProgressIndicator(
-            progress = { (batteryLevel ?: 0) / 100f },
+            progress = (batteryLevel ?: 0) / 100f,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)

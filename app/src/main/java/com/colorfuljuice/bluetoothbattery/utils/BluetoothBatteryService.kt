@@ -3,6 +3,7 @@ package com.colorfuljuice.bluetoothbattery.utils
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
@@ -29,6 +30,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+enum class DeviceType {
+    HEADPHONE, PEN, KEYBOARD, MOUSE, OTHER
+}
+
 data class BluetoothDeviceWithBattery(
     val device: BluetoothDevice,
     val name: String,
@@ -36,7 +41,8 @@ data class BluetoothDeviceWithBattery(
     val batteryLevel: Int? = null,
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val deviceType: DeviceType = DeviceType.OTHER
 )
 
 class BluetoothBatteryService(private val context: Context) {
@@ -196,6 +202,50 @@ class BluetoothBatteryService(private val context: Context) {
         }
     }
 
+    @SuppressLint("MissingPermission")
+    private fun detectDeviceType(device: BluetoothDevice): DeviceType {
+        val nameLower = try { device.name?.lowercase() ?: "" } catch (_: Exception) { "" }
+
+        if (nameLower.contains("pen") || nameLower.contains("stylus") || nameLower.contains("pencil")) {
+            return DeviceType.PEN
+        }
+        if (nameLower.contains("mouse") || nameLower.contains("鼠标")) {
+            return DeviceType.MOUSE
+        }
+        if (nameLower.contains("keyboard") || nameLower.contains("键盘") ||
+            nameLower.contains("keychron") || nameLower.contains("logitech k")) {
+            return DeviceType.KEYBOARD
+        }
+
+        try {
+            val clazz = device.bluetoothClass ?: return DeviceType.OTHER
+            when (clazz.majorDeviceClass) {
+                BluetoothClass.Device.Major.AUDIO_VIDEO -> return DeviceType.HEADPHONE
+                BluetoothClass.Device.Major.COMPUTER -> {
+                    val deviceClass = clazz.deviceClass
+                    return when (deviceClass) {
+                        BluetoothClass.Device.PERIPHERAL_KEYBOARD,
+                        BluetoothClass.Device.PERIPHERAL_KEYBOARD_POINTING -> DeviceType.KEYBOARD
+                        BluetoothClass.Device.PERIPHERAL_POINTING,
+                        BluetoothClass.Device.PERIPHERAL_NON_KEYBOARD_NON_POINTING -> DeviceType.MOUSE
+                        else -> DeviceType.KEYBOARD
+                    }
+                }
+                BluetoothClass.Device.Major.PERIPHERAL -> {
+                    val deviceClass = clazz.deviceClass
+                    return when {
+                        deviceClass == BluetoothClass.Device.PERIPHERAL_KEYBOARD ||
+                        deviceClass == BluetoothClass.Device.PERIPHERAL_KEYBOARD_POINTING -> DeviceType.KEYBOARD
+                        deviceClass == BluetoothClass.Device.PERIPHERAL_POINTING -> DeviceType.MOUSE
+                        else -> DeviceType.OTHER
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        return DeviceType.OTHER
+    }
+
     private fun registerReceivers() {
         try {
             val filter = IntentFilter().apply {
@@ -250,13 +300,15 @@ class BluetoothBatteryService(private val context: Context) {
             } catch (e: Exception) {
                 device.name ?: "Unknown Device"
             }
+            val type = detectDeviceType(device)
 
             BluetoothDeviceWithBattery(
                 device = device,
                 name = name,
                 address = device.address,
                 batteryLevel = batteryLevel,
-                isConnected = isConnected
+                isConnected = isConnected,
+                deviceType = type
             )
         }
         _devices.value = deviceList

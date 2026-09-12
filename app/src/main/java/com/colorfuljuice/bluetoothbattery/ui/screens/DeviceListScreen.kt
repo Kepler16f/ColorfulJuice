@@ -47,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +62,23 @@ import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryUnknown
 import com.colorfuljuice.bluetoothbattery.ui.theme.ConnectedGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ErrorRed
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
+import com.colorfuljuice.bluetoothbattery.utils.DeviceType
+
+@Composable
+fun DeviceTypeIcon(deviceType: DeviceType, modifier: Modifier = Modifier) {
+    val iconRes = when (deviceType) {
+        DeviceType.HEADPHONE -> R.drawable.ic_device_headphone
+        DeviceType.PEN -> R.drawable.ic_device_pen
+        DeviceType.KEYBOARD -> R.drawable.ic_device_keyboard
+        DeviceType.MOUSE -> R.drawable.ic_device_mouse
+        DeviceType.OTHER -> R.drawable.ic_device_other
+    }
+    Icon(
+        painter = painterResource(id = iconRes),
+        contentDescription = null,
+        modifier = modifier
+    )
+}
 
 @Composable
 fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Modifier) {
@@ -338,12 +357,8 @@ fun DeviceCard(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = if (device.isConnected) Icons.Default.BluetoothConnected
-                            else Icons.Default.Bluetooth,
-                            contentDescription = null,
-                            tint = if (device.isConnected) ConnectedGreen
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        DeviceTypeIcon(
+                            deviceType = device.deviceType,
                             modifier = Modifier.size(24.dp)
                         )
                     }

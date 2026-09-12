@@ -4,16 +4,16 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:translateX="34"
-        android:translateY="24"
-        android:scaleX="0.65"
-        android:scaleY="0.65">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M20,4 L20,2 C20,0.9 19.1,0 18,0 L10,0 C8.9,0 8,0.9 8,2 L8,4 L4,4 C1.8,4 0,5.8 0,8 L0,32 C0,34.2 1.8,36 4,36 L32,36 C34.2,36 36,34.2 36,32 L36,8 C36,5.8 34.2,4 32,4 L20,4 Z M14,24 C9.6,24 6,20.4 6,16 C6,11.6 9.6,8 14,8 C18.4,8 22,11.6 22,16 C22,20.4 18.4,24 14,24 Z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M11,14 L17,14 L17,18 L11,18 Z" />
-    </group>
+    <!-- Battery body outline - centered, small enough for circle crop -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M38,34 L42,34 L42,30 L48,30 L48,34 L52,34 L52,30.5 C52,29.1 53.1,28 54.5,28 L57.5,28 C58.9,28 60,29.1 60,30.5 L60,34 L64,34 L64,30.5 C64,26.9 61.1,24 57.5,24 L54.5,24 C50.9,24 48,26.9 48,30 L48,30 L42,30 C38.7,30 36,32.7 36,36 L36,68 C36,71.3 38.7,74 42,74 L57.5,74 C61.1,74 64,71.1 64,67.5 L64,38 L38,38 L38,34 Z" />
+    <!-- Fill level indicator (small inner block) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,44 L57.5,44 C59.4,44 61,45.6 61,47.5 L61,63.5 C61,65.4 59.4,67 57.5,67 L42,67 C40.1,67 38.5,65.4 38.5,63.5 L38.5,47.5 C38.5,45.6 40.1,44 42,44 Z" />
+    <!-- Small dot (charging indicator feel) -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M49.75,52 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0" />
 </vector>

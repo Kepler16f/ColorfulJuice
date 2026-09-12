@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
-import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -24,14 +23,16 @@ class WidgetConfigureActivity : AppCompatActivity() {
 
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var widgetMode = "1x3"
+    private var maxSelect = 1
     private var selectedAddresses = mutableListOf<String>()
     private lateinit var adapter: DeviceListAdapter
     private lateinit var btnConfirm: Button
 
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Required: set result to CANCELED first so widget isn't added if user cancels
+        // Set canceled result by default so the widget isn't added if user backs out
         setResult(RESULT_CANCELED)
 
         setContentView(R.layout.activity_widget_select)
@@ -42,14 +43,25 @@ class WidgetConfigureActivity : AppCompatActivity() {
             return
         }
 
-        // Determine widget type from the provider that is being configured
-        widgetMode = resolveWidgetMode(widgetId)
+        // Determine the widget type from the provider ComponentName
+        val manager = AppWidgetManager.getInstance(this)
+        val providerName = try {
+            manager.getAppWidgetInfo(widgetId)?.provider?.className ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        widgetMode = when {
+            providerName.contains("Widget2x2Dual") -> "2x2_dual"
+            providerName.contains("Widget2x2Single") -> "2x2_single"
+            providerName.contains("Widget1x3") -> "1x3"
+            else -> "1x3"
+        }
+        maxSelect = if (widgetMode == "2x2_dual") 2 else 1
 
         val title = findViewById<TextView>(R.id.select_title)
         val btnCancel = findViewById<Button>(R.id.btn_cancel)
         btnConfirm = findViewById(R.id.btn_confirm)
 
-        val maxSelect = if (widgetMode == "2x2_dual") 2 else 1
         title.text = if (maxSelect == 2) {
             getString(R.string.widget_select_two_devices)
         } else {
@@ -57,6 +69,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
         }
         btnCancel.text = getString(R.string.widget_cancel)
         btnConfirm.text = getString(R.string.widget_confirm)
+        btnConfirm.isEnabled = false
 
         val devices = getPairedDevices()
 
@@ -76,66 +89,35 @@ class WidgetConfigureActivity : AppCompatActivity() {
 
         btnConfirm.setOnClickListener {
             if (selectedAddresses.isEmpty()) {
-                Toast.makeText(this, getString(R.string.widget_select_device), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.widget_select_device, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            saveConfiguration()
-        }
-    }
 
-    private fun resolveWidgetMode(widgetId: Int): String {
-        return try {
-            val manager = AppWidgetManager.getInstance(this)
-            val info = manager.getAppWidgetInfo(widgetId)
-            val provider = info?.provider?.className ?: ""
-            when {
-                provider.contains("Widget2x2Dual") -> "2x2_dual"
-                provider.contains("Widget2x2Single") -> "2x2_single"
-                else -> "1x3"
+            saveConfiguration()
+
+            val resultValue = Intent().apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             }
-        } catch (e: Exception) {
-            "1x3"
+            setResult(RESULT_OK, resultValue)
+            Toast.makeText(this, R.string.widget_added, Toast.LENGTH_SHORT).show()
+            finish()
         }
     }
 
     private fun saveConfiguration() {
+        val editor = WidgetHelper.getPrefs(this).edit()
         when (widgetMode) {
             "2x2_dual" -> {
-                WidgetHelper.getPrefs(this).edit()
-                    .putString("widget_${widgetId}_1", selectedAddresses.getOrNull(0))
-                    .putString("widget_${widgetId}_2", selectedAddresses.getOrNull(1))
-                    .apply()
-                WidgetHelper.saveWidgetType(this, widgetId, "2x2_dual")
-            }
-            "2x2_single" -> {
-                WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
-                WidgetHelper.saveWidgetType(this, widgetId, "2x2_single")
+                editor.putString("widget_${widgetId}_1", selectedAddresses.getOrNull(0))
+                editor.putString("widget_${widgetId}_2", selectedAddresses.getOrNull(1))
+                editor.putString("widget_type_$widgetId", "2x2_dual")
             }
             else -> {
-                WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
-                WidgetHelper.saveWidgetType(this, widgetId, "1x3")
+                editor.putString("widget_$widgetId", selectedAddresses.firstOrNull())
+                editor.putString("widget_type_$widgetId", widgetMode)
             }
         }
-
-        // Trigger a refresh on the correct provider
-        val component = when (widgetMode) {
-            "2x2_dual" -> ComponentName(this, Widget2x2Dual::class.java)
-            "2x2_single" -> ComponentName(this, Widget2x2Single::class.java)
-            else -> ComponentName(this, Widget1x3::class.java)
-        }
-        val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-            this.component = component
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
-        }
-        sendBroadcast(updateIntent)
-
-        Toast.makeText(this, getString(R.string.widget_added), Toast.LENGTH_SHORT).show()
-
-        val resultValue = Intent().apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-        }
-        setResult(RESULT_OK, resultValue)
-        finish()
+        editor.commit()
     }
 
     @SuppressLint("MissingPermission")

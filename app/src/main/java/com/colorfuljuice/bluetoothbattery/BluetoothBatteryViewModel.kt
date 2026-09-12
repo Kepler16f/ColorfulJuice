@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
@@ -41,7 +42,6 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _hiddenDeviceAddresses = MutableStateFlow<Set<String>>(emptySet())
     val hiddenDeviceAddresses: StateFlow<Set<String>> = _hiddenDeviceAddresses.asStateFlow()
 
-    // Fully reactive: whenever bluetoothService.devices changes OR hiddenDeviceAddresses changes, visibleDevices updates immediately!
     val visibleDevices: StateFlow<List<BluetoothDeviceWithBattery>> = combine(
         bluetoothService.devices,
         _hiddenDeviceAddresses
@@ -56,9 +56,17 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _currentLanguage = MutableStateFlow("system")
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
 
+    private val _connectionTimeout = MutableStateFlow(12)
+    val connectionTimeout: StateFlow<Int> = _connectionTimeout.asStateFlow()
+
+    private val _batteryRefreshInterval = MutableStateFlow(0)
+    val batteryRefreshInterval: StateFlow<Int> = _batteryRefreshInterval.asStateFlow()
+
     companion object {
         private val KEY_HIDDEN_DEVICES = stringPreferencesKey("hidden_devices")
         private val KEY_LANGUAGE = stringPreferencesKey("language")
+        private val KEY_CONNECTION_TIMEOUT = intPreferencesKey("connection_timeout")
+        private val KEY_BATTERY_REFRESH_INTERVAL = intPreferencesKey("battery_refresh_interval")
     }
 
     init {
@@ -87,6 +95,22 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 _currentLanguage.value = lang
             }
         }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_CONNECTION_TIMEOUT] ?: 12
+            }.collect { timeout ->
+                _connectionTimeout.value = timeout
+                bluetoothService.setConnectionTimeout(timeout)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_BATTERY_REFRESH_INTERVAL] ?: 0
+            }.collect { interval ->
+                _batteryRefreshInterval.value = interval
+                bluetoothService.setBatteryRefreshInterval(interval)
+            }
+        }
     }
 
     fun isDeviceHidden(address: String): Boolean {
@@ -113,6 +137,26 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             _currentLanguage.value = language
             dataStore.edit { preferences ->
                 preferences[KEY_LANGUAGE] = language
+            }
+        }
+    }
+
+    fun setConnectionTimeout(timeout: Int) {
+        viewModelScope.launch {
+            _connectionTimeout.value = timeout
+            bluetoothService.setConnectionTimeout(timeout)
+            dataStore.edit { preferences ->
+                preferences[KEY_CONNECTION_TIMEOUT] = timeout
+            }
+        }
+    }
+
+    fun setBatteryRefreshInterval(interval: Int) {
+        viewModelScope.launch {
+            _batteryRefreshInterval.value = interval
+            bluetoothService.setBatteryRefreshInterval(interval)
+            dataStore.edit { preferences ->
+                preferences[KEY_BATTERY_REFRESH_INTERVAL] = interval
             }
         }
     }

@@ -49,7 +49,6 @@ class BluetoothBatteryService(private val context: Context) {
 
         private const val ACTION_BATTERY_LEVEL_CHANGED = "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
         private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
-        private const val CONNECTION_TIMEOUT_MS = 12000L
     }
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -62,6 +61,10 @@ class BluetoothBatteryService(private val context: Context) {
     private val connectionJobs = mutableMapOf<String, Job>()
     private val scope = CoroutineScope(Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var connectionTimeoutMs = 12000L
+    private var batteryRefreshIntervalSec = 0
+    private var batteryRefreshJob: Job? = null
 
     private var headsetProfile: BluetoothHeadset? = null
     private var a2dpProfile: BluetoothA2dp? = null
@@ -150,6 +153,47 @@ class BluetoothBatteryService(private val context: Context) {
     init {
         registerReceivers()
         initProfileProxies()
+    }
+
+    fun setConnectionTimeout(seconds: Int) {
+        connectionTimeoutMs = seconds * 1000L
+        Log.d(TAG, "Connection timeout set to ${seconds}s")
+    }
+
+    fun setBatteryRefreshInterval(seconds: Int) {
+        batteryRefreshIntervalSec = seconds
+        batteryRefreshJob?.cancel()
+        if (seconds > 0) {
+            startBatteryRefreshTimer()
+            Log.d(TAG, "Battery auto-refresh interval set to ${seconds}s")
+        } else {
+            Log.d(TAG, "Battery auto-refresh disabled")
+        }
+    }
+
+    private fun startBatteryRefreshTimer() {
+        batteryRefreshJob?.cancel()
+        batteryRefreshJob = scope.launch {
+            while (true) {
+                delay(batteryRefreshIntervalSec * 1000L)
+                refreshAllConnectedBatteries()
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun refreshAllConnectedBatteries() {
+        val connectedDevices = _devices.value.filter { it.isConnected }
+        if (connectedDevices.isEmpty()) return
+        Log.d(TAG, "Auto-refreshing battery for ${connectedDevices.size} connected devices")
+        connectedDevices.forEach { item ->
+            val sysBattery = getBatteryLevelFromSystem(item.device)
+            if (sysBattery != null) {
+                updateDeviceByAddress(item.address) {
+                    it.copy(batteryLevel = sysBattery)
+                }
+            }
+        }
     }
 
     private fun registerReceivers() {
@@ -277,7 +321,6 @@ class BluetoothBatteryService(private val context: Context) {
         val device = deviceWithBattery.device
         val address = deviceWithBattery.address
 
-        // 1. First, check if Android system already knows the battery level (e.g. from HFP/AVRCP)
         val sysBattery = getBatteryLevelFromSystem(device)
         val sysConnected = isDeviceCurrentlyConnected(device)
 
@@ -291,10 +334,8 @@ class BluetoothBatteryService(private val context: Context) {
                     error = null
                 )
             }
-            // Even if found, we can still query GATT in background if needed, or return early if success
         }
 
-        // Set connecting state
         updateDeviceByAddress(address) {
             it.copy(
                 isConnecting = true,
@@ -304,15 +345,13 @@ class BluetoothBatteryService(private val context: Context) {
             )
         }
 
-        // Cancel previous timeout job and close previous GATT if any
         connectionJobs[address]?.cancel()
         gattConnections[address]?.disconnect()
         gattConnections[address]?.close()
         gattConnections.remove(address)
 
-        // Launch timeout guard
         connectionJobs[address] = scope.launch {
-            delay(CONNECTION_TIMEOUT_MS)
+            delay(connectionTimeoutMs)
             val current = _devices.value.find { it.address == address }
             if (current != null && current.isConnecting) {
                 Log.w(TAG, "Connection timed out for $address")
@@ -338,7 +377,6 @@ class BluetoothBatteryService(private val context: Context) {
                         gatt.close()
                         gattConnections.remove(address)
 
-                        // If we already have a system battery level, keep connected
                         val hasBattery = _devices.value.find { it.address == address }?.batteryLevel != null
                         val isStillConnected = isDeviceCurrentlyConnected(device)
                         updateDeviceByAddress(address) {
@@ -361,7 +399,6 @@ class BluetoothBatteryService(private val context: Context) {
                                     error = null
                                 )
                             }
-                            // Wait a short duration before discoverServices (BLE stack requirement)
                             mainHandler.postDelayed({
                                 try {
                                     gatt.discoverServices()
@@ -395,7 +432,6 @@ class BluetoothBatteryService(private val context: Context) {
                         if (batteryService != null) {
                             val batteryCharacteristic = batteryService.getCharacteristic(BATTERY_LEVEL_UUID)
                             if (batteryCharacteristic != null) {
-                                // Enable notifications
                                 gatt.setCharacteristicNotification(batteryCharacteristic, true)
                                 val descriptor = batteryCharacteristic.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)
                                 if (descriptor != null) {
@@ -455,7 +491,6 @@ class BluetoothBatteryService(private val context: Context) {
                 }
             }
 
-            // Connect GATT with TRANSPORT_AUTO or TRANSPORT_LE
             val gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_AUTO)
             } else {
@@ -550,6 +585,7 @@ class BluetoothBatteryService(private val context: Context) {
     }
 
     fun destroy() {
+        batteryRefreshJob?.cancel()
         disconnectAll()
         try {
             context.unregisterReceiver(bluetoothReceiver)

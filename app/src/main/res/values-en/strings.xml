@@ -31,6 +31,15 @@
     <string name="device_manage_hint">Checked devices will appear in the list</string>
     <string name="common">General</string>
     <string name="about">About</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_connection_timeout">Connection Timeout</string>
+    <string name="settings_battery_refresh_interval">Battery Auto-Refresh</string>
+    <string name="refresh_off">Off</string>
+    <string name="refresh_30s">Every 30 seconds</string>
+    <string name="refresh_1min">Every 1 minute</string>
+    <string name="refresh_2min">Every 2 minutes</string>
+    <string name="refresh_5min">Every 5 minutes</string>
+    <string name="refresh_10min">Every 10 minutes</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="language_traditional_chinese">繁體中文</string>
     <string name="language_english">English</string>

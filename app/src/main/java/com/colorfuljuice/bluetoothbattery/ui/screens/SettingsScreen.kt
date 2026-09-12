@@ -16,10 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,7 +56,11 @@ import java.net.URL
 @Composable
 fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Modifier) {
     val currentLanguage by viewModel.currentLanguage.collectAsState()
+    val connectionTimeout by viewModel.connectionTimeout.collectAsState()
+    val batteryRefreshInterval by viewModel.batteryRefreshInterval.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showTimeoutDialog by remember { mutableStateOf(false) }
+    var showRefreshIntervalDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -86,6 +93,37 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
                 },
                 onClick = { showLanguageDialog = true }
             )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = stringResource(R.string.settings_connection),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column {
+                SettingsItem(
+                    icon = Icons.Default.Bluetooth,
+                    title = stringResource(R.string.settings_connection_timeout),
+                    subtitle = "${connectionTimeout}s",
+                    onClick = { showTimeoutDialog = true }
+                )
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsItem(
+                    icon = Icons.Default.Update,
+                    title = stringResource(R.string.settings_battery_refresh_interval),
+                    subtitle = formatRefreshInterval(batteryRefreshInterval, context),
+                    onClick = { showRefreshIntervalDialog = true }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -141,6 +179,58 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             }
         )
     }
+
+    if (showTimeoutDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_connection_timeout),
+            options = listOf(
+                Triple(3, "3s", "3s"),
+                Triple(5, "5s", "5s"),
+                Triple(8, "8s", "8s"),
+                Triple(12, "12s", "12s"),
+                Triple(20, "20s", "20s"),
+                Triple(30, "30s", "30s")
+            ),
+            selectedValue = connectionTimeout,
+            onDismiss = { showTimeoutDialog = false },
+            onSelected = { value ->
+                viewModel.setConnectionTimeout(value)
+                showTimeoutDialog = false
+            }
+        )
+    }
+
+    if (showRefreshIntervalDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_battery_refresh_interval),
+            options = listOf(
+                Triple(0, context.getString(R.string.refresh_off), "off"),
+                Triple(30, context.getString(R.string.refresh_30s), "30s"),
+                Triple(60, context.getString(R.string.refresh_1min), "1m"),
+                Triple(120, context.getString(R.string.refresh_2min), "2m"),
+                Triple(300, context.getString(R.string.refresh_5min), "5m"),
+                Triple(600, context.getString(R.string.refresh_10min), "10m")
+            ),
+            selectedValue = batteryRefreshInterval,
+            onDismiss = { showRefreshIntervalDialog = false },
+            onSelected = { value ->
+                viewModel.setBatteryRefreshInterval(value)
+                showRefreshIntervalDialog = false
+            }
+        )
+    }
+}
+
+private fun formatRefreshInterval(seconds: Int, context: android.content.Context): String {
+    return when (seconds) {
+        0 -> context.getString(R.string.refresh_off)
+        30 -> context.getString(R.string.refresh_30s)
+        60 -> context.getString(R.string.refresh_1min)
+        120 -> context.getString(R.string.refresh_2min)
+        300 -> context.getString(R.string.refresh_5min)
+        600 -> context.getString(R.string.refresh_10min)
+        else -> "${seconds}s"
+    }
 }
 
 @Composable
@@ -177,6 +267,51 @@ fun SettingsItem(
             )
         }
     }
+}
+
+@Composable
+fun <T> SingleChoiceDialog(
+    title: String,
+    options: List<Triple<T, String, String>>,
+    selectedValue: T,
+    onDismiss: () -> Unit,
+    onSelected: (T) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEach { (value, label, _) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelected(value) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (value == selectedValue) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
 }
 
 @Composable

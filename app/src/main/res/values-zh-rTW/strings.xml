@@ -31,6 +31,15 @@
     <string name="device_manage_hint">勾選的裝置將顯示在列表中</string>
     <string name="common">通用</string>
     <string name="about">關於</string>
+    <string name="settings_connection">連線</string>
+    <string name="settings_connection_timeout">連線逾時</string>
+    <string name="settings_battery_refresh_interval">電量自動重新整理</string>
+    <string name="refresh_off">關閉</string>
+    <string name="refresh_30s">每 30 秒</string>
+    <string name="refresh_1min">每 1 分鐘</string>
+    <string name="refresh_2min">每 2 分鐘</string>
+    <string name="refresh_5min">每 5 分鐘</string>
+    <string name="refresh_10min">每 10 分鐘</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="language_traditional_chinese">繁體中文</string>
     <string name="language_english">English</string>

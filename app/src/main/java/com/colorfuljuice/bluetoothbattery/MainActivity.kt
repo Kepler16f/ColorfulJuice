@@ -203,7 +203,7 @@ fun MainApp(viewModel: BluetoothBatteryViewModel) {
                     onClick = {
                         if (currentDestination != "devices") {
                             navController.navigate("devices") {
-                                popUpTo(navController.graph.startDestinationId) { launchSingleTop = true }
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                 launchSingleTop = true
                             }
                         }
@@ -216,7 +216,7 @@ fun MainApp(viewModel: BluetoothBatteryViewModel) {
                     onClick = {
                         if (currentDestination != "settings") {
                             navController.navigate("settings") {
-                                popUpTo(navController.graph.startDestinationId) { launchSingleTop = true }
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                 launchSingleTop = true
                             }
                         }

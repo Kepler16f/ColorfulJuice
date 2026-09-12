@@ -23,7 +23,7 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -117,7 +117,7 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
                         }
                     }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsItem(
                     icon = Icons.Default.Code,
                     title = stringResource(R.string.settings_source_code),

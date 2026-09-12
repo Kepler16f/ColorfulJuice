@@ -21,36 +21,38 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.colorfuljuice.bluetoothbattery.BluetoothBatteryViewModel
+import com.colorfuljuice.bluetoothbattery.R
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryHigh
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryLow
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryMedium
@@ -59,52 +61,18 @@ import com.colorfuljuice.bluetoothbattery.ui.theme.ConnectedGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ErrorRed
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceListScreen(viewModel: BluetoothBatteryViewModel) {
+fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Modifier) {
     val devices by viewModel.devices.collectAsState()
+    val visibleDevices by viewModel.visibleDevices.collectAsState()
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var showManageDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Bluetooth Battery",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                actions = {
-                    IconButton(onClick = { viewModel.connectAllDevices() }) {
-                        Icon(
-                            imageVector = Icons.Default.BluetoothConnected,
-                            contentDescription = "Connect All"
-                        )
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.loadPairedDevices() },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh"
-                )
-            }
-        }
-    ) { paddingValues ->
+    Box(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .padding(16.dp)
         ) {
             if (!isBluetoothEnabled) {
@@ -115,13 +83,101 @@ fun DeviceListScreen(viewModel: BluetoothBatteryViewModel) {
                 EmptyState()
             } else {
                 DeviceList(
-                    devices = devices,
+                    devices = visibleDevices,
+                    totalCount = devices.size,
                     onConnect = { viewModel.connectToDevice(it) },
                     onDisconnect = { viewModel.disconnectDevice(it) }
                 )
             }
         }
+
+        FloatingActionButton(
+            onClick = { viewModel.loadPairedDevices() },
+            containerColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Refresh"
+            )
+        }
+
+        IconButton(
+            onClick = { showManageDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = stringResource(R.string.device_manage)
+            )
+        }
     }
+
+    if (showManageDialog) {
+        DeviceManageDialog(
+            allDevices = devices,
+            hiddenAddresses = viewModel.hiddenDeviceAddresses.collectAsState().value,
+            onToggle = { viewModel.toggleDeviceVisibility(it) },
+            onDismiss = { showManageDialog = false }
+        )
+    }
+}
+
+@Composable
+fun DeviceManageDialog(
+    allDevices: List<BluetoothDeviceWithBattery>,
+    hiddenAddresses: Set<String>,
+    onToggle: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.device_manage_title), fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.device_manage_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                allDevices.forEach { device ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = device.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = device.address,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = device.address !in hiddenAddresses,
+                            onCheckedChange = { onToggle(device.address) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
 }
 
 @Composable
@@ -145,13 +201,13 @@ fun BluetoothDisabledCard() {
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "Bluetooth Disabled",
+                    text = stringResource(R.string.device_bluetooth_disabled),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Please enable Bluetooth to scan for devices",
+                    text = stringResource(R.string.device_bluetooth_disabled_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
@@ -173,7 +229,7 @@ fun LoadingIndicator() {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Loading paired devices...",
+                text = stringResource(R.string.device_loading),
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -198,13 +254,13 @@ fun EmptyState() {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No Paired Devices",
+                text = stringResource(R.string.device_empty),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Pair some Bluetooth devices first, then tap refresh",
+                text = stringResource(R.string.device_empty_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -216,6 +272,7 @@ fun EmptyState() {
 @Composable
 fun DeviceList(
     devices: List<BluetoothDeviceWithBattery>,
+    totalCount: Int,
     onConnect: (BluetoothDeviceWithBattery) -> Unit,
     onDisconnect: (String) -> Unit
 ) {
@@ -224,7 +281,7 @@ fun DeviceList(
     ) {
         item {
             Text(
-                text = "Paired Devices (${devices.size})",
+                text = stringResource(R.string.device_paired_count, totalCount),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -309,7 +366,7 @@ fun DeviceCard(
                         onClick = onConnect,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Connect")
+                        Text(stringResource(R.string.device_connect))
                     }
                 } else {
                     OutlinedButton(
@@ -318,11 +375,11 @@ fun DeviceCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.LinkOff,
-                            contentDescription = "Disconnect",
+                            contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Disconnect")
+                        Text(stringResource(R.string.device_disconnect))
                     }
                 }
             }
@@ -334,7 +391,7 @@ fun DeviceCard(
 
             if (device.error != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Error_message(error = device.error)
+                ErrorMessage(error = device.error)
             }
         }
     }
@@ -349,12 +406,12 @@ fun BatteryIndicator(batteryLevel: Int?) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Battery Level",
+                text = stringResource(R.string.device_battery_level),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = if (batteryLevel != null) "$batteryLevel%" else "Unknown",
+                text = if (batteryLevel != null) "$batteryLevel%" else stringResource(R.string.device_battery_unknown),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 color = when {
@@ -384,7 +441,7 @@ fun BatteryIndicator(batteryLevel: Int?) {
 }
 
 @Composable
-fun Error_message(error: String) {
+fun ErrorMessage(error: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

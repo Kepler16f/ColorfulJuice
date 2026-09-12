@@ -6,7 +6,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,9 +14,12 @@ import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -39,8 +41,17 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _hiddenDeviceAddresses = MutableStateFlow<Set<String>>(emptySet())
     val hiddenDeviceAddresses: StateFlow<Set<String>> = _hiddenDeviceAddresses.asStateFlow()
 
-    private val _visibleDevices = MutableStateFlow<List<BluetoothDeviceWithBattery>>(emptyList())
-    val visibleDevices: StateFlow<List<BluetoothDeviceWithBattery>> = _visibleDevices.asStateFlow()
+    // Fully reactive: whenever bluetoothService.devices changes OR hiddenDeviceAddresses changes, visibleDevices updates immediately!
+    val visibleDevices: StateFlow<List<BluetoothDeviceWithBattery>> = combine(
+        bluetoothService.devices,
+        _hiddenDeviceAddresses
+    ) { allDevices, hidden ->
+        allDevices.filter { it.address !in hidden }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
 
     private val _currentLanguage = MutableStateFlow("system")
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
@@ -67,7 +78,6 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                     emptySet()
                 }
                 _hiddenDeviceAddresses.value = hidden
-                updateVisibleDevices()
             }
         }
         viewModelScope.launch {
@@ -77,11 +87,6 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 _currentLanguage.value = lang
             }
         }
-    }
-
-    private fun updateVisibleDevices() {
-        val hidden = _hiddenDeviceAddresses.value
-        _visibleDevices.value = devices.value.filter { it.address !in hidden }
     }
 
     fun isDeviceHidden(address: String): Boolean {
@@ -100,7 +105,6 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             dataStore.edit { preferences ->
                 preferences[KEY_HIDDEN_DEVICES] = gson.toJson(current)
             }
-            updateVisibleDevices()
         }
     }
 
@@ -122,7 +126,6 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             _isLoading.value = true
             bluetoothService.loadPairedDevices()
             _isLoading.value = false
-            updateVisibleDevices()
         }
     }
 
@@ -141,10 +144,15 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     fun connectAllDevices() {
         viewModelScope.launch {
             devices.value.forEach { device ->
-                if (!device.isConnected && !device.isConnecting) {
+                if (!device.isConnecting) {
                     connectToDevice(device)
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        bluetoothService.destroy()
     }
 }

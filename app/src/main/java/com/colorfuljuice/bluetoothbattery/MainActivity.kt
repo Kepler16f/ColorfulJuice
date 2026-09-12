@@ -58,27 +58,40 @@ import com.colorfuljuice.bluetoothbattery.ui.theme.BluetoothBatteryTheme
 
 class MainActivity : ComponentActivity() {
 
+    private var permissionsGrantedState = mutableStateOf(false)
+    private var viewModel: BluetoothBatteryViewModel? = null
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val allGranted = permissions.values.all { it }
+        permissionsGrantedState.value = allGranted
         if (allGranted) {
             viewModel?.loadPairedDevices()
         }
     }
 
-    private var viewModel: BluetoothBatteryViewModel? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        permissionsGrantedState.value = hasAllPermissions()
+
         setContent {
             val vm: BluetoothBatteryViewModel = viewModel()
             viewModel = vm
 
             val language by vm.currentLanguage.collectAsState()
+            val permissionsGranted by remember { permissionsGrantedState }
 
             LaunchedEffect(language) {
                 applyLanguage(language)
+            }
+
+            LaunchedEffect(Unit) {
+                if (!permissionsGranted) {
+                    checkAndRequestPermissions()
+                } else {
+                    vm.loadPairedDevices()
+                }
             }
 
             BluetoothBatteryTheme {
@@ -86,15 +99,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var permissionsGranted by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(Unit) {
-                        permissionsGranted = checkAndRequestPermissions()
-                        if (permissionsGranted) {
-                            vm.loadPairedDevices()
-                        }
-                    }
-
                     if (permissionsGranted) {
                         MainApp(vm)
                     } else {
@@ -104,6 +108,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val granted = hasAllPermissions()
+        permissionsGrantedState.value = granted
+        if (granted) {
+            viewModel?.checkBluetoothState()
+            viewModel?.loadPairedDevices()
         }
     }
 
@@ -121,9 +135,12 @@ class MainActivity : ComponentActivity() {
         resources.updateConfiguration(config, resources.displayMetrics)
     }
 
-    private fun checkAndRequestPermissions(): Boolean {
-        val permissions = mutableListOf<String>()
+    private fun hasAllPermissions(): Boolean {
+        return getRequiredPermissions().isEmpty()
+    }
 
+    private fun getRequiredPermissions(): List<String> {
+        val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
                 != PackageManager.PERMISSION_GRANTED
@@ -152,11 +169,16 @@ class MainActivity : ComponentActivity() {
                 permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         }
+        return permissions
+    }
 
-        return if (permissions.isEmpty()) {
+    private fun checkAndRequestPermissions(): Boolean {
+        val missing = getRequiredPermissions()
+        return if (missing.isEmpty()) {
+            permissionsGrantedState.value = true
             true
         } else {
-            requestPermissionLauncher.launch(permissions.toTypedArray())
+            requestPermissionLauncher.launch(missing.toTypedArray())
             false
         }
     }

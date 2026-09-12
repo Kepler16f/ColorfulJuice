@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="@drawable/widget_card_bg"
+    android:gravity="center">
+
+    <!-- Row 1: Circular icon + percentage -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <FrameLayout
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="10dp">
+
+            <ImageView
+                android:id="@+id/widget_ring_bg"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/widget_circle_bg" />
+
+            <ImageView
+                android:id="@+id/widget_ring_icon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_device_headphone" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_ring_battery_pct"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="75%"
+                android:textSize="22sp"
+                android:textColor="#333333"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_ring_device_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设备名称"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:ellipsize="end"
+                android:maxLines="1" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 2: Single battery bar (always shown) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp">
+
+        <ProgressBar
+            android:id="@+id/widget_fallback_bar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="6dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:progressDrawable="@drawable/widget_battery_progress" />
+
+        <TextView
+            android:id="@+id/widget_fallback_pct"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="75%"
+            android:textSize="11sp"
+            android:textColor="#666666"
+            android:textStyle="bold"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
+    <!-- Sub battery rows (visible for headphone with split battery) -->
+    <LinearLayout
+        android:id="@+id/widget_sub_batteries"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="4dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/widget_left_ear_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:text="L"
+                android:textSize="10sp"
+                android:textColor="#888888" />
+
+            <ProgressBar
+                android:id="@+id/widget_left_ear_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progressDrawable="@drawable/widget_battery_progress_small" />
+
+            <TextView
+                android:id="@+id/widget_left_ear_pct"
+                android:layout_width="28dp"
+                android:layout_height="wrap_content"
+                android:text="80%"
+                android:textSize="10sp"
+                android:textColor="#666666"
+                android:gravity="end" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_right_ear_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:text="R"
+                android:textSize="10sp"
+                android:textColor="#888888" />
+
+            <ProgressBar
+                android:id="@+id/widget_right_ear_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progressDrawable="@drawable/widget_battery_progress_small" />
+
+            <TextView
+                android:id="@+id/widget_right_ear_pct"
+                android:layout_width="28dp"
+                android:layout_height="wrap_content"
+                android:text="80%"
+                android:textSize="10sp"
+                android:textColor="#666666"
+                android:gravity="end" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_case_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:text="盒"
+                android:textSize="10sp"
+                android:textColor="#888888" />
+
+            <ProgressBar
+                android:id="@+id/widget_case_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progressDrawable="@drawable/widget_battery_progress_small" />
+
+            <TextView
+                android:id="@+id/widget_case_pct"
+                android:layout_width="28dp"
+                android:layout_height="wrap_content"
+                android:text="90%"
+                android:textSize="10sp"
+                android:textColor="#666666"
+                android:gravity="end" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -47,4 +47,13 @@
     <string name="battery_left">左耳</string>
     <string name="battery_right">右耳</string>
     <string name="battery_case">充電盒</string>
+    <string name="widget_1x3_label">電量條 (1×3)</string>
+    <string name="widget_2x2_single_label">單裝置 (2×2)</string>
+    <string name="widget_2x2_dual_label">雙裝置 (2×2)</string>
+    <string name="widget_tap_to_select">點擊選擇裝置</string>
+    <string name="widget_select_device">選擇裝置</string>
+    <string name="widget_select_two_devices">選擇兩個裝置</string>
+    <string name="widget_confirm">確認</string>
+    <string name="widget_cancel">取消</string>
+    <string name="widget_added">裝置已新增至桌面</string>
 </resources>

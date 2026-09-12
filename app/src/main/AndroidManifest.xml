@@ -27,6 +27,58 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 1×3 Widget -->
+        <receiver
+            android:name=".widget.Widget1x3"
+            android:exported="true"
+            android:label="@string/widget_1x3_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.colorfuljuice.bluetoothbattery.ACTION_CONFIGURE_WIDGET_1X3" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_1x3_info" />
+        </receiver>
+
+        <!-- 2×2 Single Widget -->
+        <receiver
+            android:name=".widget.Widget2x2Single"
+            android:exported="true"
+            android:label="@string/widget_2x2_single_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.colorfuljuice.bluetoothbattery.ACTION_CONFIGURE_WIDGET_2X2_SINGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_2x2_single_info" />
+        </receiver>
+
+        <!-- 2×2 Dual Widget -->
+        <receiver
+            android:name=".widget.Widget2x2Dual"
+            android:exported="true"
+            android:label="@string/widget_2x2_dual_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.colorfuljuice.bluetoothbattery.ACTION_CONFIGURE_WIDGET_2X2_DUAL" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_2x2_dual_info" />
+        </receiver>
+
+        <!-- Widget Configure Activity -->
+        <activity
+            android:name=".widget.WidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.BluetoothBattery.WidgetConfig">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

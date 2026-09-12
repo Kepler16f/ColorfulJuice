@@ -47,4 +47,13 @@
     <string name="battery_left">Left Ear</string>
     <string name="battery_right">Right Ear</string>
     <string name="battery_case">Case</string>
+    <string name="widget_1x3_label">Battery Bar (1×3)</string>
+    <string name="widget_2x2_single_label">Single Device (2×2)</string>
+    <string name="widget_2x2_dual_label">Dual Device (2×2)</string>
+    <string name="widget_tap_to_select">Tap to select device</string>
+    <string name="widget_select_device">Select Device</string>
+    <string name="widget_select_two_devices">Select Two Devices</string>
+    <string name="widget_confirm">Confirm</string>
+    <string name="widget_cancel">Cancel</string>
+    <string name="widget_added">Device added to home screen</string>
 </resources>

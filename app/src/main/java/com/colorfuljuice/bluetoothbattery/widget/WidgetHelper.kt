@@ -1,16 +1,14 @@
 package com.colorfuljuice.bluetoothbattery.widget
 
 import android.annotation.SuppressLint
-import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.util.Log
-import android.view.View
 import android.widget.RemoteViews
 import com.colorfuljuice.bluetoothbattery.R
 import com.colorfuljuice.bluetoothbattery.utils.DeviceType
@@ -35,10 +33,6 @@ object WidgetHelper {
         getPrefs(context).edit().putString("widget_type_$widgetId", type).apply()
     }
 
-    fun getWidgetType(context: Context, widgetId: Int): String {
-        return getPrefs(context).getString("widget_type_$widgetId", "1x3") ?: "1x3"
-    }
-
     fun removeWidgetConfig(context: Context, widgetId: Int) {
         getPrefs(context).edit()
             .remove("widget_$widgetId")
@@ -48,7 +42,7 @@ object WidgetHelper {
 
     @SuppressLint("MissingPermission")
     fun findDeviceByName(context: Context, address: String): BluetoothDevice? {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         val adapter = bluetoothManager?.adapter ?: return null
         return try {
             adapter.getRemoteDevice(address)
@@ -90,9 +84,9 @@ object WidgetHelper {
         val nameLower = try { device.name?.lowercase() ?: "" } catch (_: Exception) { "" }
         if (nameLower.contains("pen") || nameLower.contains("stylus") || nameLower.contains("pencil"))
             return DeviceType.PEN
-        if (nameLower.contains("mouse") || nameLower.contains("鼠标"))
+        if (nameLower.contains("mouse") || nameLower.contains("\u9f20\u6807"))
             return DeviceType.MOUSE
-        if (nameLower.contains("keyboard") || nameLower.contains("键盘") ||
+        if (nameLower.contains("keyboard") || nameLower.contains("\u952e\u76d8") ||
             nameLower.contains("keychron") || nameLower.contains("logitech k"))
             return DeviceType.KEYBOARD
         try {

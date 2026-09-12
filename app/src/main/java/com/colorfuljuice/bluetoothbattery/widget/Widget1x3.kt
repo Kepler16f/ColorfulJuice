@@ -82,11 +82,6 @@ class Widget1x3 : AppWidgetProvider() {
 
             if (battery != null) {
                 views.setViewVisibility(R.id.widget_battery_bar, View.VISIBLE)
-                val progress = android.graphics.drawable.GradientDrawable().apply {
-                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                    cornerRadius = 8f
-                    setColor(0xFFE0E0E0.toInt())
-                }
                 views.setProgressBar(R.id.widget_battery_bar, 100, battery, false)
             } else {
                 views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)

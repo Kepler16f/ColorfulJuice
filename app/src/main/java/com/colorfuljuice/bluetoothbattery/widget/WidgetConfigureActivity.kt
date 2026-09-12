@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -21,37 +22,41 @@ import com.colorfuljuice.bluetoothbattery.R
 
 class WidgetConfigureActivity : AppCompatActivity() {
 
-    private var widgetId = -1
+    private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var widgetMode = "1x3"
     private var selectedAddresses = mutableListOf<String>()
     private lateinit var adapter: DeviceListAdapter
     private lateinit var btnConfirm: Button
 
-    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Required: set result to CANCELED first so widget isn't added if user cancels
+        setResult(RESULT_CANCELED)
+
         setContentView(R.layout.activity_widget_select)
 
-        // Determine widget type from intent action
-        widgetMode = when {
-            intent.action?.contains("2X2_DUAL") == true -> "2x2_dual"
-            intent.action?.contains("2X2_SINGLE") == true -> "2x2_single"
-            intent.action?.contains("1X3") == true -> "1x3"
-            else -> intent.getStringExtra("widget_mode") ?: "1x3"
-        }
-        widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
-
-        if (widgetId == -1) {
+        widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
             return
         }
+
+        // Determine widget type from the provider that is being configured
+        widgetMode = resolveWidgetMode(widgetId)
 
         val title = findViewById<TextView>(R.id.select_title)
         val btnCancel = findViewById<Button>(R.id.btn_cancel)
         btnConfirm = findViewById(R.id.btn_confirm)
 
         val maxSelect = if (widgetMode == "2x2_dual") 2 else 1
-        title.text = if (maxSelect == 2) "选择两个设备" else "选择设备"
+        title.text = if (maxSelect == 2) {
+            getString(R.string.widget_select_two_devices)
+        } else {
+            getString(R.string.widget_select_device)
+        }
+        btnCancel.text = getString(R.string.widget_cancel)
+        btnConfirm.text = getString(R.string.widget_confirm)
 
         val devices = getPairedDevices()
 
@@ -71,72 +76,66 @@ class WidgetConfigureActivity : AppCompatActivity() {
 
         btnConfirm.setOnClickListener {
             if (selectedAddresses.isEmpty()) {
-                Toast.makeText(this, "请选择设备", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.widget_select_device), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
-            // Save config via broadcast
-            val action = when (widgetMode) {
-                "1x3" -> Widget1x3.ACTION_CONFIGURE
-                "2x2_single" -> Widget2x2Single.ACTION_CONFIGURE
-                "2x2_dual" -> Widget2x2Dual.ACTION_CONFIGURE
-                else -> Widget1x3.ACTION_CONFIGURE
-            }
-
-            val broadcastIntent = Intent(this, Widget1x3::class.java).apply {
-                this.action = action
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                when (widgetMode) {
-                    "2x2_dual" -> {
-                        putExtra("device_address_1", selectedAddresses.getOrNull(0))
-                        putExtra("device_address_2", selectedAddresses.getOrNull(1))
-                    }
-                    else -> {
-                        putExtra("device_address", selectedAddresses.firstOrNull())
-                    }
-                }
-            }
-
-            // Also save directly
-            when (widgetMode) {
-                "1x3" -> {
-                    WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
-                    WidgetHelper.saveWidgetType(this, widgetId, "1x3")
-                }
-                "2x2_single" -> {
-                    WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
-                    WidgetHelper.saveWidgetType(this, widgetId, "2x2_single")
-                }
-                "2x2_dual" -> {
-                    WidgetHelper.getPrefs(this).edit()
-                        .putString("widget_${widgetId}_1", selectedAddresses.getOrNull(0))
-                        .putString("widget_${widgetId}_2", selectedAddresses.getOrNull(1))
-                        .apply()
-                    WidgetHelper.saveWidgetType(this, widgetId, "2x2_dual")
-                }
-            }
-
-            // Notify the widget to update
-            val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                val componentName = when (widgetMode) {
-                    "1x3" -> android.content.ComponentName(this@WidgetConfigureActivity, Widget1x3::class.java)
-                    "2x2_single" -> android.content.ComponentName(this@WidgetConfigureActivity, Widget2x2Single::class.java)
-                    "2x2_dual" -> android.content.ComponentName(this@WidgetConfigureActivity, Widget2x2Dual::class.java)
-                    else -> android.content.ComponentName(this@WidgetConfigureActivity, Widget1x3::class.java)
-                }
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
-                component = componentName
-            }
-            sendBroadcast(updateIntent)
-
-            val resultValue = Intent().apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-            }
-            setResult(RESULT_OK, resultValue)
-            Toast.makeText(this, "设备已添加到桌面", Toast.LENGTH_SHORT).show()
-            finish()
+            saveConfiguration()
         }
+    }
+
+    private fun resolveWidgetMode(widgetId: Int): String {
+        return try {
+            val manager = AppWidgetManager.getInstance(this)
+            val info = manager.getAppWidgetInfo(widgetId)
+            val provider = info?.provider?.className ?: ""
+            when {
+                provider.contains("Widget2x2Dual") -> "2x2_dual"
+                provider.contains("Widget2x2Single") -> "2x2_single"
+                else -> "1x3"
+            }
+        } catch (e: Exception) {
+            "1x3"
+        }
+    }
+
+    private fun saveConfiguration() {
+        when (widgetMode) {
+            "2x2_dual" -> {
+                WidgetHelper.getPrefs(this).edit()
+                    .putString("widget_${widgetId}_1", selectedAddresses.getOrNull(0))
+                    .putString("widget_${widgetId}_2", selectedAddresses.getOrNull(1))
+                    .apply()
+                WidgetHelper.saveWidgetType(this, widgetId, "2x2_dual")
+            }
+            "2x2_single" -> {
+                WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
+                WidgetHelper.saveWidgetType(this, widgetId, "2x2_single")
+            }
+            else -> {
+                WidgetHelper.saveDeviceAddress(this, widgetId, selectedAddresses.firstOrNull())
+                WidgetHelper.saveWidgetType(this, widgetId, "1x3")
+            }
+        }
+
+        // Trigger a refresh on the correct provider
+        val component = when (widgetMode) {
+            "2x2_dual" -> ComponentName(this, Widget2x2Dual::class.java)
+            "2x2_single" -> ComponentName(this, Widget2x2Single::class.java)
+            else -> ComponentName(this, Widget1x3::class.java)
+        }
+        val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+            this.component = component
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
+        }
+        sendBroadcast(updateIntent)
+
+        Toast.makeText(this, getString(R.string.widget_added), Toast.LENGTH_SHORT).show()
+
+        val resultValue = Intent().apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+        }
+        setResult(RESULT_OK, resultValue)
+        finish()
     }
 
     @SuppressLint("MissingPermission")
@@ -205,7 +204,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
             val isSelected = selectedPositions.contains(position)
             holder.itemView.alpha = if (isSelected) 1.0f else 0.6f
             holder.itemView.setBackgroundColor(
-                if (isSelected) 0x204CAF50.toInt() else 0x00000000
+                if (isSelected) 0x204CAF50 else 0x00000000
             )
 
             holder.itemView.setOnClickListener {

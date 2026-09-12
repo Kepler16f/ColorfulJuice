@@ -64,8 +64,8 @@ class Widget2x2Dual : AppWidgetProvider() {
     private fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
         val views = RemoteViews(context.packageName, R.layout.widget_2x2_dual)
         val prefs = WidgetHelper.getPrefs(context)
-        val address1 = prefs.getString("widget_${widget_id}_1", null)
-        val address2 = prefs.getString("widget_${widget_id}_2", null)
+        val address1 = prefs.getString("widget_${widgetId}_1", null)
+        val address2 = prefs.getString("widget_${widgetId}_2", null)
 
         // Device 1
         if (address1 != null) {

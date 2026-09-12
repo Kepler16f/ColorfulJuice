@@ -39,6 +39,9 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _refreshCompleted = MutableStateFlow(false)
+    val refreshCompleted: StateFlow<Boolean> = _refreshCompleted.asStateFlow()
+
     private val _hiddenDeviceAddresses = MutableStateFlow<Set<String>>(emptySet())
     val hiddenDeviceAddresses: StateFlow<Set<String>> = _hiddenDeviceAddresses.asStateFlow()
 
@@ -168,9 +171,15 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     fun loadPairedDevices() {
         viewModelScope.launch {
             _isLoading.value = true
+            _refreshCompleted.value = false
             bluetoothService.loadPairedDevices()
             _isLoading.value = false
+            _refreshCompleted.value = true
         }
+    }
+
+    fun consumeRefreshCompleted() {
+        _refreshCompleted.value = false
     }
 
     fun connectToDevice(device: BluetoothDeviceWithBattery) {

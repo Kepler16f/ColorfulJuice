@@ -1,6 +1,10 @@
 package com.colorfuljuice.bluetoothbattery.ui.screens
 
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
@@ -39,6 +42,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +70,7 @@ import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
 import com.colorfuljuice.bluetoothbattery.utils.DeviceType
 
 @Composable
-fun DeviceTypeIcon(deviceType: DeviceType, modifier: Modifier = Modifier) {
+fun DeviceTypeIcon(deviceType: DeviceType, modifier: Modifier = Modifier, alpha: Float = 1f) {
     val iconRes = when (deviceType) {
         DeviceType.HEADPHONE -> R.drawable.ic_device_headphone
         DeviceType.PEN -> R.drawable.ic_device_pen
@@ -76,7 +81,8 @@ fun DeviceTypeIcon(deviceType: DeviceType, modifier: Modifier = Modifier) {
     Icon(
         painter = painterResource(id = iconRes),
         contentDescription = null,
-        modifier = modifier
+        modifier = modifier,
+        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
     )
 }
 
@@ -86,8 +92,36 @@ fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = 
     val visibleDevices by viewModel.visibleDevices.collectAsState()
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val refreshCompleted by viewModel.refreshCompleted.collectAsState()
     val hiddenAddresses by viewModel.hiddenDeviceAddresses.collectAsState()
     var showManageDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Refresh rotation animation
+    var isRefreshing by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (isRefreshing) 360f else 0f,
+        animationSpec = if (isRefreshing) {
+            tween(durationMillis = 800, easing = LinearEasing)
+        } else {
+            tween(durationMillis = 0)
+        },
+        label = "refresh_rotation"
+    )
+
+    // Watch for loading state to drive animation
+    LaunchedEffect(isLoading) {
+        isRefreshing = isLoading
+    }
+
+    // Toast on refresh completion
+    LaunchedEffect(refreshCompleted) {
+        if (refreshCompleted) {
+            Toast.makeText(context, context.getString(R.string.refresh_done), Toast.LENGTH_SHORT).show()
+            viewModel.consumeRefreshCompleted()
+            isRefreshing = false
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -124,7 +158,7 @@ fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = 
 
             if (!isBluetoothEnabled) {
                 BluetoothDisabledCard()
-            } else if (isLoading) {
+            } else if (isLoading && devices.isEmpty()) {
                 LoadingIndicator()
             } else if (devices.isEmpty()) {
                 EmptyState()
@@ -154,16 +188,22 @@ fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = 
             }
         }
 
+        // Refresh FAB at bottom-left
         FloatingActionButton(
-            onClick = { viewModel.loadPairedDevices() },
+            onClick = {
+                if (!isLoading) {
+                    viewModel.loadPairedDevices()
+                }
+            },
             containerColor = MaterialTheme.colorScheme.primary,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.BottomStart)
                 .padding(24.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Refresh,
-                contentDescription = "Refresh"
+                contentDescription = "Refresh",
+                modifier = Modifier.rotate(rotation)
             )
         }
     }
@@ -359,7 +399,8 @@ fun DeviceCard(
                     ) {
                         DeviceTypeIcon(
                             deviceType = device.deviceType,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
+                            alpha = if (device.isConnected) 1f else 0.4f
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -415,9 +456,14 @@ fun DeviceCard(
                 }
             }
 
+            // Battery display
             if (device.isConnected || device.batteryLevel != null) {
                 Spacer(modifier = Modifier.height(16.dp))
-                BatteryIndicator(batteryLevel = device.batteryLevel)
+                if (device.deviceType == DeviceType.HEADPHONE && (device.batteryLeft != null || device.batteryRight != null || device.batteryCase != null)) {
+                    HeadphoneBatteryIndicator(device = device)
+                } else {
+                    BatteryIndicator(batteryLevel = device.batteryLevel)
+                }
             }
 
             if (device.error != null) {
@@ -425,6 +471,66 @@ fun DeviceCard(
                 ErrorMessage(error = device.error)
             }
         }
+    }
+}
+
+@Composable
+fun HeadphoneBatteryIndicator(device: BluetoothDeviceWithBattery) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (device.batteryLeft != null) {
+            SubBatteryRow(label = stringResource(R.string.battery_left), level = device.batteryLeft)
+        }
+        if (device.batteryRight != null) {
+            SubBatteryRow(label = stringResource(R.string.battery_right), level = device.batteryRight)
+        }
+        if (device.batteryCase != null) {
+            SubBatteryRow(label = stringResource(R.string.battery_case), level = device.batteryCase)
+        }
+        // If no split data, show main battery
+        if (device.batteryLeft == null && device.batteryRight == null && device.batteryCase == null) {
+            BatteryIndicator(batteryLevel = device.batteryLevel)
+        }
+    }
+}
+
+@Composable
+fun SubBatteryRow(label: String, level: Int) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "$level%",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    level > 60 -> BatteryHigh
+                    level > 20 -> BatteryMedium
+                    else -> BatteryLow
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = level / 100f,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = when {
+                level > 60 -> BatteryHigh
+                level > 20 -> BatteryMedium
+                else -> BatteryLow
+            },
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
     }
 }
 

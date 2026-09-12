@@ -43,4 +43,8 @@
     <string name="language_simplified_chinese">简体中文</string>
     <string name="language_traditional_chinese">繁體中文</string>
     <string name="language_english">English</string>
+    <string name="refresh_done">Refresh complete</string>
+    <string name="battery_left">Left Ear</string>
+    <string name="battery_right">Right Ear</string>
+    <string name="battery_case">Case</string>
 </resources>

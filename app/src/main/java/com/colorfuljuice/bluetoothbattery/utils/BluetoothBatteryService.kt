@@ -42,7 +42,10 @@ data class BluetoothDeviceWithBattery(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
     val error: String? = null,
-    val deviceType: DeviceType = DeviceType.OTHER
+    val deviceType: DeviceType = DeviceType.OTHER,
+    val batteryLeft: Int? = null,
+    val batteryRight: Int? = null,
+    val batteryCase: Int? = null
 )
 
 class BluetoothBatteryService(private val context: Context) {
@@ -52,6 +55,19 @@ class BluetoothBatteryService(private val context: Context) {
         private val BATTERY_SERVICE_UUID: UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
         private val BATTERY_LEVEL_UUID: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
         private val CLIENT_CONFIG_DESCRIPTOR_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+        // Headphone-specific battery UUIDs (left/right/case)
+        private val HEADSET_SERVICE_UUID: UUID = UUID.fromString("00001804-0000-1000-8000-00805f9b34fb")
+        private val BATTERY_LEVEL_STATE_UUID: UUID = UUID.fromString("00002a1a-0000-1000-8000-00805f9b34fb")
+
+        // Vendor-specific services for TWS earbuds
+        private val APPLE_HEADPHONE_UUID: UUID = UUID.fromString("7dfc7d04-0b06-11e6-b3f4-0002a5d5c51b")
+        private val LEFT_EAR_UUID: UUID = UUID.fromString("7dfc7d07-0b06-11e6-b3f4-0002a5d5c51b")
+        private val RIGHT_EAR_UUID: UUID = UUID.fromString("7dfc7d08-0b06-11e6-b3f4-0002a5d5c51b")
+        private val CASE_BATTERY_UUID: UUID = UUID.fromString("7dfc7d09-0b06-11e6-b3f4-0002a5d5c51b")
+
+        // 0x1804 Headset service for some devices
+        private val HEADSET_BATTERY_UUID: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
 
         private const val ACTION_BATTERY_LEVEL_CHANGED = "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
         private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
@@ -480,6 +496,7 @@ class BluetoothBatteryService(private val context: Context) {
                     connectionJobs[address]?.cancel()
 
                     if (status == BluetoothGatt.GATT_SUCCESS) {
+                        // Try standard battery service first
                         val batteryService = gatt.getService(BATTERY_SERVICE_UUID)
                         if (batteryService != null) {
                             val batteryCharacteristic = batteryService.getCharacteristic(BATTERY_LEVEL_UUID)
@@ -503,6 +520,9 @@ class BluetoothBatteryService(private val context: Context) {
                         } else {
                             handleMissingBatteryService(address, "Battery Service (0x180F) not found")
                         }
+
+                        // Try reading headphone-specific left/right/case battery
+                        readHeadphoneSubBattery(gatt, address)
                     } else {
                         handleMissingBatteryService(address, "Failed to discover services (status $status)")
                     }
@@ -551,6 +571,13 @@ class BluetoothBatteryService(private val context: Context) {
 
             if (gatt != null) {
                 gattConnections[address] = gatt
+                // For headphone-type devices, try reading sub-battery after a delay
+                val devType = _devices.value.find { it.address == address }?.deviceType
+                if (devType == DeviceType.HEADPHONE) {
+                    mainHandler.postDelayed({
+                        readHeadphoneSubBatteryDirect(device, address)
+                    }, 2000)
+                }
             } else {
                 throw IllegalStateException("connectGatt returned null")
             }
@@ -592,6 +619,162 @@ class BluetoothBatteryService(private val context: Context) {
                 batteryLevel = sysBattery ?: it.batteryLevel,
                 error = if (sysBattery != null || it.batteryLevel != null) null else reason
             )
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun readHeadphoneSubBattery(gatt: BluetoothGatt, address: String) {
+        // Try Apple-style left/right/case battery
+        val appleService = gatt.getService(APPLE_HEADPHONE_UUID)
+        if (appleService != null) {
+            Log.d(TAG, "Found Apple headphone service for $address")
+            listOf(LEFT_EAR_UUID to "left", RIGHT_EAR_UUID to "right", CASE_BATTERY_UUID to "case").forEach { (uuid, label) ->
+                val ch = appleService.getCharacteristic(uuid)
+                if (ch != null) {
+                    gatt.setCharacteristicNotification(ch, true)
+                    val desc = ch.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)
+                    if (desc != null) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            gatt.writeDescriptor(desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            desc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            @Suppress("DEPRECATION")
+                            gatt.writeDescriptor(desc)
+                        }
+                    }
+                    gatt.readCharacteristic(ch)
+                    Log.d(TAG, "Reading $label battery from Apple service for $address")
+                }
+            }
+        }
+
+        // Try 0x1804 headset service
+        val headsetService = gatt.getService(HEADSET_SERVICE_UUID)
+        if (headsetService != null) {
+            val batteryCh = headsetService.getCharacteristic(HEADSET_BATTERY_UUID)
+            if (batteryCh != null) {
+                gatt.setCharacteristicNotification(batteryCh, true)
+                val desc = batteryCh.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)
+                if (desc != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        gatt.writeDescriptor(desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        desc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        @Suppress("DEPRECATION")
+                        gatt.writeDescriptor(desc)
+                    }
+                }
+                gatt.readCharacteristic(batteryCh)
+                Log.d(TAG, "Reading battery from headset service for $address")
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun readHeadphoneSubBatteryDirect(device: BluetoothDevice, address: String) {
+        // Try direct GATT connection for headphone sub-batteries
+        try {
+            val callback = object : BluetoothGattCallback() {
+                override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        mainHandler.postDelayed({
+                            try { gatt.discoverServices() } catch (_: Exception) {}
+                        }, 300)
+                    } else {
+                        gatt.close()
+                    }
+                }
+
+                override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        readHeadphoneSubBattery(gatt, address)
+                    } else {
+                        gatt.close()
+                    }
+                }
+
+                override fun onCharacteristicRead(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic,
+                    value: ByteArray,
+                    status: Int
+                ) {
+                    handleSubBatteryCharacteristic(characteristic.uuid, value, status, address)
+                }
+
+                @Suppress("DEPRECATION")
+                override fun onCharacteristicRead(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic,
+                    status: Int
+                ) {
+                    handleSubBatteryCharacteristic(characteristic.uuid, characteristic.value, status, address)
+                }
+
+                override fun onCharacteristicChanged(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic,
+                    value: ByteArray
+                ) {
+                    handleSubBatteryCharacteristic(characteristic.uuid, value, BluetoothGatt.GATT_SUCCESS, address)
+                }
+
+                @Suppress("DEPRECATION")
+                override fun onCharacteristicChanged(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic
+                ) {
+                    handleSubBatteryCharacteristic(characteristic.uuid, characteristic.value, BluetoothGatt.GATT_SUCCESS, address)
+                }
+            }
+
+            val gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_AUTO)
+            } else {
+                device.connectGatt(context, false, callback)
+            }
+
+            // Close after timeout
+            mainHandler.postDelayed({
+                try { gatt?.close() } catch (_: Exception) {}
+            }, connectionTimeoutMs + 2000)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading sub-battery for $address", e)
+        }
+    }
+
+    private fun handleSubBatteryCharacteristic(uuid: UUID, value: ByteArray?, status: Int, address: String) {
+        if (status != BluetoothGatt.GATT_SUCCESS || value == null || value.isEmpty()) return
+        val level = value[0].toInt() and 0xFF
+        if (level !in 0..100) return
+
+        when (uuid) {
+            LEFT_EAR_UUID -> {
+                Log.d(TAG, "Left ear battery for $address: $level%")
+                updateDeviceByAddress(address) { it.copy(batteryLeft = level) }
+            }
+            RIGHT_EAR_UUID -> {
+                Log.d(TAG, "Right ear battery for $address: $level%")
+                updateDeviceByAddress(address) { it.copy(batteryRight = level) }
+            }
+            CASE_BATTERY_UUID -> {
+                Log.d(TAG, "Case battery for $address: $level%")
+                updateDeviceByAddress(address) { it.copy(batteryCase = level) }
+            }
+            HEADSET_BATTERY_UUID, BATTERY_LEVEL_UUID -> {
+                // Some headsets report sub-battery via this UUID
+                Log.d(TAG, "Headset sub-battery for $address: $level%")
+                updateDeviceByAddress(address) {
+                    // If we don't have split data yet, treat as main battery
+                    if (it.batteryLeft == null && it.batteryRight == null && it.batteryCase == null) {
+                        it.copy(batteryLevel = level)
+                    } else {
+                        it.copy(batteryCase = level)
+                    }
+                }
+            }
         }
     }
 

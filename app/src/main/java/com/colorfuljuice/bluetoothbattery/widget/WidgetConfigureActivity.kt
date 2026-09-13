@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.colorfuljuice.bluetoothbattery.R
+import kotlin.math.min
 
 class WidgetConfigureActivity : Activity() {
 
@@ -81,6 +82,15 @@ class WidgetConfigureActivity : Activity() {
         val recyclerView = findViewById<RecyclerView>(R.id.device_list)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
+        // Constrain RecyclerView height for dialog mode
+        recyclerView.post {
+            val screenHeight = resources.displayMetrics.heightPixels
+            val maxHeight = (screenHeight * 0.5).toInt()
+            val lp = recyclerView.layoutParams
+            lp.height = min(lp.height, maxHeight)
+            recyclerView.layoutParams = lp
+        }
 
         btnCancel.setOnClickListener {
             setResult(RESULT_CANCELED)

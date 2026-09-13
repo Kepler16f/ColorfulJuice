@@ -74,7 +74,7 @@
         <activity
             android:name=".widget.WidgetConfigureActivity"
             android:exported="true"
-            android:theme="@style/Theme.BluetoothBattery">
+            android:theme="@style/Theme.BluetoothBattery.Dialog">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

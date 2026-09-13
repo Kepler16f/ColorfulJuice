@@ -48,8 +48,8 @@
     <string name="battery_right">右耳</string>
     <string name="battery_case">充电盒</string>
     <string name="widget_1x3_label">电量条 (1×3)</string>
-    <string name="widget_2x2_single_label">单设备 (2×2)</string>
-    <string name="widget_2x2_dual_label">双设备 (2×2)</string>
+    <string name="widget_2x2_single_label">ColorfulJuice</string>
+    <string name="widget_2x2_dual_label">ColorfulJuice</string>
     <string name="widget_tap_to_select">点击选择设备</string>
     <string name="widget_select_device">选择设备</string>
     <string name="widget_select_two_devices">选择两个设备</string>

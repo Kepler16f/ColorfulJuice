@@ -53,11 +53,11 @@
                 android:id="@+id/widget_ring_device_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="ColorfulJuice"
+                android:text="设备名称"
                 android:textSize="11sp"
                 android:textColor="#999999"
                 android:ellipsize="end"
-                android:maxLines="1" />
+                android:maxLines="2" />
         </LinearLayout>
     </LinearLayout>
 

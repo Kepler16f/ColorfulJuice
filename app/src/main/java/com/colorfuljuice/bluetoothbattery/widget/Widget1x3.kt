@@ -88,13 +88,23 @@ class Widget1x3 : AppWidgetProvider() {
             }
         }
 
-        // Click to launch app
-        val intent = Intent(context, MainActivity::class.java)
+        // Click: select device if not configured, otherwise open app
+        val clickIntent = if (address == null) {
+            Intent(context, WidgetConfigureActivity::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra("widget_mode", "1x3")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
         val pendingIntent = PendingIntent.getActivity(
-            context, widgetId, intent,
+            context, widgetId, clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        views.setOnClickPendingIntent(R.id.widget_device_name, pendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_1x3_root, pendingIntent)
 
         manager.updateAppWidget(widgetId, views)
     }

@@ -1,6 +1,7 @@
 package com.colorfuljuice.bluetoothbattery.widget
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -14,12 +15,11 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.colorfuljuice.bluetoothbattery.R
 
-class WidgetConfigureActivity : AppCompatActivity() {
+class WidgetConfigureActivity : Activity() {
 
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var widgetMode = "1x3"
@@ -54,7 +54,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
             providerName.contains("Widget2x2Dual") -> "2x2_dual"
             providerName.contains("Widget2x2Single") -> "2x2_single"
             providerName.contains("Widget1x3") -> "1x3"
-            else -> "1x3"
+            else -> intent.getStringExtra("widget_mode") ?: "1x3"
         }
         maxSelect = if (widgetMode == "2x2_dual") 2 else 1
 
@@ -94,6 +94,9 @@ class WidgetConfigureActivity : AppCompatActivity() {
             }
 
             saveConfiguration()
+
+            // Refresh the widget with the newly selected device(s)
+            WidgetHelper.updateWidgetById(this, widgetId, widgetMode)
 
             val resultValue = Intent().apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)

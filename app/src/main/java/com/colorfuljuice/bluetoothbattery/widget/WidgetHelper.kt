@@ -1,9 +1,11 @@
 package com.colorfuljuice.bluetoothbattery.widget
 
 import android.annotation.SuppressLint
+import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -38,6 +40,23 @@ object WidgetHelper {
             .remove("widget_$widgetId")
             .remove("widget_type_$widgetId")
             .apply()
+    }
+
+    fun updateWidgetById(context: Context, widgetId: Int, mode: String) {
+        val providerClass = when (mode) {
+            "2x2_dual" -> Widget2x2Dual::class.java
+            "2x2_single" -> Widget2x2Single::class.java
+            else -> Widget1x3::class.java
+        }
+        try {
+            val intent = Intent(context, providerClass).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
+            }
+            context.sendBroadcast(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update widget $widgetId", e)
+        }
     }
 
     @SuppressLint("MissingPermission")

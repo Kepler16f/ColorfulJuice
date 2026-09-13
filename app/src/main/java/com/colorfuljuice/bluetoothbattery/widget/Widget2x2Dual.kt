@@ -109,13 +109,23 @@ class Widget2x2Dual : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_dual_pct2, "--")
         }
 
-        // Click to launch app
-        val intent = Intent(context, MainActivity::class.java)
+        // Click: select devices if not configured, otherwise open app
+        val clickIntent = if (address1.isNullOrBlank() || address2.isNullOrBlank()) {
+            Intent(context, WidgetConfigureActivity::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                putExtra("widget_mode", "2x2_dual")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
         val pendingIntent = PendingIntent.getActivity(
-            context, widgetId, intent,
+            context, widgetId, clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        views.setOnClickPendingIntent(R.id.widget_dual_name1, pendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_2x2_dual_root, pendingIntent)
 
         manager.updateAppWidget(widgetId, views)
     }

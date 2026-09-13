@@ -25,7 +25,7 @@
                 android:id="@+id/widget_ring_bg"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:src="@drawable/widget_circle_bg" />
+                android:src="@drawable/widget_ring_battery_unknown" />
 
             <ImageView
                 android:id="@+id/widget_ring_icon"

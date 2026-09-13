@@ -29,8 +29,28 @@ class WidgetConfigureActivity : Activity() {
     private lateinit var adapter: DeviceListAdapter
     private lateinit var btnConfirm: Button
 
+    private fun applyThemeFromPrefs() {
+        val prefs = getSharedPreferences("settings_theme", MODE_PRIVATE)
+        val themeMode = prefs.getInt("theme_mode", 0)
+        val isDark = when (themeMode) {
+            1 -> false
+            2 -> true
+            else -> {
+                val nightMode = resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+        if (isDark) {
+            setTheme(android.R.style.Theme_Material_Dialog)
+        } else {
+            setTheme(android.R.style.Theme_Material_Light_Dialog)
+        }
+    }
+
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
+        applyThemeFromPrefs()
         super.onCreate(savedInstanceState)
 
         // Set canceled result by default so the widget isn't added if user backs out
@@ -198,8 +218,12 @@ class WidgetConfigureActivity : Activity() {
 
             val isSelected = selectedPositions.contains(position)
             holder.itemView.alpha = if (isSelected) 1.0f else 0.6f
+            val typedValue = android.util.TypedValue()
+            theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+            val bgColor = typedValue.data
+            val selectColor = 0x20000000.toInt()
             holder.itemView.setBackgroundColor(
-                if (isSelected) 0x204CAF50 else 0x00000000
+                if (isSelected) selectColor else bgColor
             )
 
             holder.itemView.setOnClickListener {

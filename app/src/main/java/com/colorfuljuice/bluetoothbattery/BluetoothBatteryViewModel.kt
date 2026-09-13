@@ -192,6 +192,9 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             dataStore.edit { preferences ->
                 preferences[KEY_THEME_MODE] = mode
             }
+            // Also save to SharedPreferences for plain Activities
+            getApplication<Application>().getSharedPreferences("settings_theme", android.content.Context.MODE_PRIVATE)
+                .edit().putInt("theme_mode", mode).apply()
         }
     }
 
@@ -201,6 +204,9 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             dataStore.edit { preferences ->
                 preferences[KEY_USE_DYNAMIC_COLOR] = enabled.toString()
             }
+            // Also save to SharedPreferences for plain Activities
+            getApplication<Application>().getSharedPreferences("settings_theme", android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("use_dynamic_color", enabled).apply()
         }
     }
 

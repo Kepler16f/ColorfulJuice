@@ -61,4 +61,7 @@
     <string name="theme_follow_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
+    <string name="settings_dynamic_color">莫奈取色</string>
+    <string name="dynamic_color_on">已开启</string>
+    <string name="dynamic_color_off">已关闭</string>
 </resources>

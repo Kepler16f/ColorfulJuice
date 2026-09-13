@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
 
             val language by vm.currentLanguage.collectAsState()
             val themeMode by vm.themeMode.collectAsState()
+            val useDynamicColor by vm.useDynamicColor.collectAsState()
             val permissionsGranted by remember { permissionsGrantedState }
 
             val darkTheme = when (themeMode) {
@@ -102,7 +103,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            BluetoothBatteryTheme(darkTheme = darkTheme) {
+            BluetoothBatteryTheme(darkTheme = darkTheme, dynamicColor = useDynamicColor) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

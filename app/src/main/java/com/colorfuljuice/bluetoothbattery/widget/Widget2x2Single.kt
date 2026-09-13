@@ -67,6 +67,8 @@ class Widget2x2Single : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_ring_battery_pct, "--")
             views.setTextViewText(R.id.widget_fallback_pct, "--")
             views.setImageViewResource(R.id.widget_ring_icon, R.drawable.ic_device_other)
+            views.setImageViewResource(R.id.widget_ring_bg, R.drawable.widget_ring_battery_unknown)
+            views.setImageViewLevel(R.id.widget_ring_bg, 0)
         } else {
             val name = WidgetHelper.getDeviceName(context, address)
             val battery = WidgetHelper.getBatteryLevel(context, address)
@@ -77,6 +79,17 @@ class Widget2x2Single : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_ring_device_name, name)
             views.setTextViewText(R.id.widget_ring_battery_pct, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_ring_battery_pct, color)
+
+            // Ring color based on battery level
+            val ringRes = when {
+                battery == null -> R.drawable.widget_ring_battery_unknown
+                battery <= 20 -> R.drawable.widget_ring_battery_low
+                battery <= 50 -> R.drawable.widget_ring_battery_medium
+                else -> R.drawable.widget_ring_battery_high
+            }
+            views.setImageViewResource(R.id.widget_ring_bg, ringRes)
+            // Ring fill level: level range 0-10000, battery is 0-100
+            views.setImageViewLevel(R.id.widget_ring_bg, (battery ?: 0) * 100)
 
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_ring_icon,
                 WidgetHelper.getDeviceTypeIconRes(type))
@@ -90,9 +103,6 @@ class Widget2x2Single : AppWidgetProvider() {
 
             // Show sub-battery rows for headphones
             if (type == DeviceType.HEADPHONE) {
-                // Sub-battery data requires GATT connection; in widget context we only have
-                // system battery level. Show the single bar as primary display.
-                // Future: cache sub-battery data from main app in SharedPreferences
                 views.setViewVisibility(R.id.widget_sub_batteries, View.GONE)
             }
         }

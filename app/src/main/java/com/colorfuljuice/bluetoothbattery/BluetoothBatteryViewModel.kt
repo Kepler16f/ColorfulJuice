@@ -68,12 +68,16 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _themeMode = MutableStateFlow(0)
     val themeMode: StateFlow<Int> = _themeMode.asStateFlow()
 
+    private val _useDynamicColor = MutableStateFlow(true)
+    val useDynamicColor: StateFlow<Boolean> = _useDynamicColor.asStateFlow()
+
     companion object {
         private val KEY_HIDDEN_DEVICES = stringPreferencesKey("hidden_devices")
         private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_CONNECTION_TIMEOUT = intPreferencesKey("connection_timeout")
         private val KEY_BATTERY_REFRESH_INTERVAL = intPreferencesKey("battery_refresh_interval")
         private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
+        private val KEY_USE_DYNAMIC_COLOR = stringPreferencesKey("use_dynamic_color")
     }
 
     init {
@@ -123,6 +127,13 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 preferences[KEY_THEME_MODE] ?: 0
             }.collect { mode ->
                 _themeMode.value = mode
+            }
+        }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_USE_DYNAMIC_COLOR] ?: "true"
+            }.collect { value ->
+                _useDynamicColor.value = value == "true"
             }
         }
     }
@@ -180,6 +191,15 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             _themeMode.value = mode
             dataStore.edit { preferences ->
                 preferences[KEY_THEME_MODE] = mode
+            }
+        }
+    }
+
+    fun setUseDynamicColor(enabled: Boolean) {
+        viewModelScope.launch {
+            _useDynamicColor.value = enabled
+            dataStore.edit { preferences ->
+                preferences[KEY_USE_DYNAMIC_COLOR] = enabled.toString()
             }
         }
     }

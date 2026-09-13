@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Update
@@ -60,6 +61,7 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
     val connectionTimeout by viewModel.connectionTimeout.collectAsState()
     val batteryRefreshInterval by viewModel.batteryRefreshInterval.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val useDynamicColor by viewModel.useDynamicColor.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimeoutDialog by remember { mutableStateOf(false) }
     var showRefreshIntervalDialog by remember { mutableStateOf(false) }
@@ -112,16 +114,26 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            SettingsItem(
-                icon = Icons.Default.Brightness6,
-                title = stringResource(R.string.settings_theme_mode),
-                subtitle = when (themeMode) {
-                    1 -> stringResource(R.string.theme_light)
-                    2 -> stringResource(R.string.theme_dark)
-                    else -> stringResource(R.string.theme_follow_system)
-                },
-                onClick = { showThemeModeDialog = true }
-            )
+            Column {
+                SettingsItem(
+                    icon = Icons.Default.Brightness6,
+                    title = stringResource(R.string.settings_theme_mode),
+                    subtitle = when (themeMode) {
+                        1 -> stringResource(R.string.theme_light)
+                        2 -> stringResource(R.string.theme_dark)
+                        else -> stringResource(R.string.theme_follow_system)
+                    },
+                    onClick = { showThemeModeDialog = true }
+                )
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsItem(
+                    icon = Icons.Default.Palette,
+                    title = stringResource(R.string.settings_dynamic_color),
+                    subtitle = if (useDynamicColor) stringResource(R.string.dynamic_color_on)
+                               else stringResource(R.string.dynamic_color_off),
+                    onClick = { viewModel.setUseDynamicColor(!useDynamicColor) }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))

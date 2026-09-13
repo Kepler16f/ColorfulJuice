@@ -53,7 +53,7 @@
                 android:id="@+id/widget_ring_device_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="设备名称"
+                android:text="ColorfulJuice"
                 android:textSize="11sp"
                 android:textColor="#999999"
                 android:ellipsize="end"

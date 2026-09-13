@@ -56,4 +56,9 @@
     <string name="widget_confirm">确认</string>
     <string name="widget_cancel">取消</string>
     <string name="widget_added">设备已添加到桌面</string>
+    <string name="settings_display">显示</string>
+    <string name="settings_theme_mode">主题模式</string>
+    <string name="theme_follow_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
 </resources>

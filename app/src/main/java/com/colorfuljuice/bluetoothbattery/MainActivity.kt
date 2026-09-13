@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -80,7 +81,14 @@ class MainActivity : ComponentActivity() {
             viewModel = vm
 
             val language by vm.currentLanguage.collectAsState()
+            val themeMode by vm.themeMode.collectAsState()
             val permissionsGranted by remember { permissionsGrantedState }
+
+            val darkTheme = when (themeMode) {
+                1 -> false
+                2 -> true
+                else -> isSystemInDarkTheme()
+            }
 
             LaunchedEffect(language) {
                 applyLanguage(language)
@@ -94,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            BluetoothBatteryTheme {
+            BluetoothBatteryTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

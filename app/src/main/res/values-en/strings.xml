@@ -56,4 +56,9 @@
     <string name="widget_confirm">Confirm</string>
     <string name="widget_cancel">Cancel</string>
     <string name="widget_added">Device added to home screen</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_theme_mode">Theme Mode</string>
+    <string name="theme_follow_system">Follow System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
 </resources>

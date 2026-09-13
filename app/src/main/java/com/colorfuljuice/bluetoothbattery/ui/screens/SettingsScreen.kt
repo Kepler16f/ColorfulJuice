@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
@@ -58,9 +59,11 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     val connectionTimeout by viewModel.connectionTimeout.collectAsState()
     val batteryRefreshInterval by viewModel.batteryRefreshInterval.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimeoutDialog by remember { mutableStateOf(false) }
     var showRefreshIntervalDialog by remember { mutableStateOf(false) }
+    var showThemeModeDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -92,6 +95,32 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
                     else -> "System"
                 },
                 onClick = { showLanguageDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = stringResource(R.string.settings_display),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            SettingsItem(
+                icon = Icons.Default.Brightness6,
+                title = stringResource(R.string.settings_theme_mode),
+                subtitle = when (themeMode) {
+                    1 -> stringResource(R.string.theme_light)
+                    2 -> stringResource(R.string.theme_dark)
+                    else -> stringResource(R.string.theme_follow_system)
+                },
+                onClick = { showThemeModeDialog = true }
             )
         }
 
@@ -216,6 +245,23 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             onSelected = { value ->
                 viewModel.setBatteryRefreshInterval(value)
                 showRefreshIntervalDialog = false
+            }
+        )
+    }
+
+    if (showThemeModeDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_theme_mode),
+            options = listOf(
+                Triple(0, stringResource(R.string.theme_follow_system), "system"),
+                Triple(1, stringResource(R.string.theme_light), "light"),
+                Triple(2, stringResource(R.string.theme_dark), "dark")
+            ),
+            selectedValue = themeMode,
+            onDismiss = { showThemeModeDialog = false },
+            onSelected = { value ->
+                viewModel.setThemeMode(value)
+                showThemeModeDialog = false
             }
         )
     }

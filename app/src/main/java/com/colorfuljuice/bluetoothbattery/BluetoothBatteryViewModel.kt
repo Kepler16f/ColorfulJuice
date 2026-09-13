@@ -65,11 +65,15 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _batteryRefreshInterval = MutableStateFlow(0)
     val batteryRefreshInterval: StateFlow<Int> = _batteryRefreshInterval.asStateFlow()
 
+    private val _themeMode = MutableStateFlow(0)
+    val themeMode: StateFlow<Int> = _themeMode.asStateFlow()
+
     companion object {
         private val KEY_HIDDEN_DEVICES = stringPreferencesKey("hidden_devices")
         private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_CONNECTION_TIMEOUT = intPreferencesKey("connection_timeout")
         private val KEY_BATTERY_REFRESH_INTERVAL = intPreferencesKey("battery_refresh_interval")
+        private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
     }
 
     init {
@@ -112,6 +116,13 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             }.collect { interval ->
                 _batteryRefreshInterval.value = interval
                 bluetoothService.setBatteryRefreshInterval(interval)
+            }
+        }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_THEME_MODE] ?: 0
+            }.collect { mode ->
+                _themeMode.value = mode
             }
         }
     }
@@ -160,6 +171,15 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             bluetoothService.setBatteryRefreshInterval(interval)
             dataStore.edit { preferences ->
                 preferences[KEY_BATTERY_REFRESH_INTERVAL] = interval
+            }
+        }
+    }
+
+    fun setThemeMode(mode: Int) {
+        viewModelScope.launch {
+            _themeMode.value = mode
+            dataStore.edit { preferences ->
+                preferences[KEY_THEME_MODE] = mode
             }
         }
     }

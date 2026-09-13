@@ -68,7 +68,7 @@ class Widget2x2Single : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_fallback_pct, "--")
             views.setImageViewResource(R.id.widget_ring_icon, R.drawable.ic_device_other)
             views.setImageViewResource(R.id.widget_ring_bg, R.drawable.widget_ring_battery_unknown)
-            views.setImageViewLevel(R.id.widget_ring_bg, 0)
+            views.setInt(R.id.widget_ring_bg, "setImageLevel", 0)
         } else {
             val name = WidgetHelper.getDeviceName(context, address)
             val battery = WidgetHelper.getBatteryLevel(context, address)
@@ -89,7 +89,7 @@ class Widget2x2Single : AppWidgetProvider() {
             }
             views.setImageViewResource(R.id.widget_ring_bg, ringRes)
             // Ring fill level: level range 0-10000, battery is 0-100
-            views.setImageViewLevel(R.id.widget_ring_bg, (battery ?: 0) * 100)
+            views.setInt(R.id.widget_ring_bg, "setImageLevel", (battery ?: 0) * 100)
 
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_ring_icon,
                 WidgetHelper.getDeviceTypeIconRes(type))

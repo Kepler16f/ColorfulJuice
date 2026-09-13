@@ -4,7 +4,6 @@
     <style name="Theme.BluetoothBattery.Dialog" parent="android:Theme.Material.Dialog">
         <item name="android:windowMinWidthMajor">85%</item>
         <item name="android:windowMinWidthMinor">85%</item>
-        <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowNoTitle">true</item>
     </style>
 </resources>

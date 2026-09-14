@@ -96,9 +96,11 @@ class Widget2x2Single : AppWidgetProvider() {
 
             // Single battery bar
             if (battery != null) {
-                views.setProgressBar(R.id.widget_fallback_bar, 100, battery, false)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, battery, battery)
                 views.setTextViewText(R.id.widget_fallback_pct, "$battery%")
                 views.setTextColor(R.id.widget_fallback_pct, color)
+            } else {
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, 0, null)
             }
 
             // Show sub-battery rows for headphones

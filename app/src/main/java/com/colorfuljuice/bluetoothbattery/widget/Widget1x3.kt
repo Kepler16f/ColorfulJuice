@@ -82,7 +82,7 @@ class Widget1x3 : AppWidgetProvider() {
 
             if (battery != null) {
                 views.setViewVisibility(R.id.widget_battery_bar, View.VISIBLE)
-                views.setProgressBar(R.id.widget_battery_bar, 100, battery, false)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_battery_bar, battery, battery)
             } else {
                 views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)
             }

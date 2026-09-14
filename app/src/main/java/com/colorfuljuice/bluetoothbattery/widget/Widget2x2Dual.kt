@@ -81,7 +81,9 @@ class Widget2x2Dual : AppWidgetProvider() {
                 WidgetHelper.getDeviceTypeIconRes(type1))
 
             if (battery1 != null) {
-                views.setProgressBar(R.id.widget_dual_bar1, 100, battery1, false)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar1, battery1, battery1)
+            } else {
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar1, 0, null)
             }
         } else {
             views.setTextViewText(R.id.widget_dual_name1, context.getString(R.string.widget_tap_to_select))
@@ -102,7 +104,9 @@ class Widget2x2Dual : AppWidgetProvider() {
                 WidgetHelper.getDeviceTypeIconRes(type2))
 
             if (battery2 != null) {
-                views.setProgressBar(R.id.widget_dual_bar2, 100, battery2, false)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar2, battery2, battery2)
+            } else {
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar2, 0, null)
             }
         } else {
             views.setTextViewText(R.id.widget_dual_name2, context.getString(R.string.widget_tap_to_select))

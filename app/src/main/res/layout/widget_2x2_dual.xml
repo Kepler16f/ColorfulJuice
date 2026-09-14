@@ -41,14 +41,12 @@
                 android:src="@drawable/ic_device_other"
                 android:layout_marginEnd="4dp" />
 
-            <ProgressBar
+            <ImageView
                 android:id="@+id/widget_dual_bar1"
-                style="@android:style/Widget.ProgressBar.Horizontal"
                 android:layout_width="0dp"
                 android:layout_height="6dp"
                 android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_battery_progress" />
+                android:scaleType="fitXY" />
 
             <TextView
                 android:id="@+id/widget_dual_pct1"
@@ -103,14 +101,12 @@
                 android:src="@drawable/ic_device_other"
                 android:layout_marginEnd="4dp" />
 
-            <ProgressBar
+            <ImageView
                 android:id="@+id/widget_dual_bar2"
-                style="@android:style/Widget.ProgressBar.Horizontal"
                 android:layout_width="0dp"
                 android:layout_height="6dp"
                 android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_battery_progress" />
+                android:scaleType="fitXY" />
 
             <TextView
                 android:id="@+id/widget_dual_pct2"

@@ -158,4 +158,62 @@ object WidgetHelper {
         drawable.draw(canvas)
         views.setImageViewBitmap(viewId, bitmap)
     }
+
+    fun setBatteryBar(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?) {
+        val density = context.resources.displayMetrics.density
+        val widthPx = (300 * density).toInt()
+        val heightPx = (6 * density).toInt()
+        val color = getBatteryColor(level)
+        val bgColor = 0xFFE0E0E0.toInt()
+        val cornerRadius = 4 * density
+
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = bgColor
+        }
+        val bgRect = android.graphics.RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat())
+        canvas.drawRoundRect(bgRect, cornerRadius, cornerRadius, bgPaint)
+
+        val progressWidth = (widthPx * progress.coerceIn(0, 100) / 100f)
+        if (progressWidth > 0f) {
+            val fgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+            }
+            val fgRect = android.graphics.RectF(0f, 0f, progressWidth, heightPx.toFloat())
+            canvas.drawRoundRect(fgRect, cornerRadius, cornerRadius, fgPaint)
+        }
+
+        views.setImageViewBitmap(viewId, bitmap)
+    }
+
+    fun setBatteryBarSmall(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?) {
+        val density = context.resources.displayMetrics.density
+        val widthPx = (300 * density).toInt()
+        val heightPx = (5 * density).toInt()
+        val color = getBatteryColor(level)
+        val bgColor = 0xFFE8E8E8.toInt()
+        val cornerRadius = 2 * density
+
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = bgColor
+        }
+        val bgRect = android.graphics.RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat())
+        canvas.drawRoundRect(bgRect, cornerRadius, cornerRadius, bgPaint)
+
+        val progressWidth = (widthPx * progress.coerceIn(0, 100) / 100f)
+        if (progressWidth > 0f) {
+            val fgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+            }
+            val fgRect = android.graphics.RectF(0f, 0f, progressWidth, heightPx.toFloat())
+            canvas.drawRoundRect(fgRect, cornerRadius, cornerRadius, fgPaint)
+        }
+
+        views.setImageViewBitmap(viewId, bitmap)
+    }
 }

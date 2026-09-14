@@ -69,14 +69,12 @@
         android:gravity="center_vertical"
         android:layout_marginTop="6dp">
 
-        <ProgressBar
+        <ImageView
             android:id="@+id/widget_fallback_bar"
-            style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="0dp"
             android:layout_height="6dp"
             android:layout_weight="1"
-            android:max="100"
-            android:progressDrawable="@drawable/widget_battery_progress" />
+            android:scaleType="fitXY" />
 
         <TextView
             android:id="@+id/widget_fallback_pct"
@@ -113,14 +111,12 @@
                 android:textSize="10sp"
                 android:textColor="#888888" />
 
-            <ProgressBar
+            <ImageView
                 android:id="@+id/widget_left_ear_bar"
-                style="@android:style/Widget.ProgressBar.Horizontal"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
                 android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_battery_progress_small" />
+                android:scaleType="fitXY" />
 
             <TextView
                 android:id="@+id/widget_left_ear_pct"
@@ -147,14 +143,12 @@
                 android:textSize="10sp"
                 android:textColor="#888888" />
 
-            <ProgressBar
+            <ImageView
                 android:id="@+id/widget_right_ear_bar"
-                style="@android:style/Widget.ProgressBar.Horizontal"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
                 android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_battery_progress_small" />
+                android:scaleType="fitXY" />
 
             <TextView
                 android:id="@+id/widget_right_ear_pct"
@@ -181,14 +175,12 @@
                 android:textSize="10sp"
                 android:textColor="#888888" />
 
-            <ProgressBar
+            <ImageView
                 android:id="@+id/widget_case_bar"
-                style="@android:style/Widget.ProgressBar.Horizontal"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
                 android:layout_weight="1"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_battery_progress_small" />
+                android:scaleType="fitXY" />
 
             <TextView
                 android:id="@+id/widget_case_pct"

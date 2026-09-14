@@ -32,15 +32,12 @@
             android:src="@drawable/ic_device_other"
             android:layout_marginEnd="6dp" />
 
-        <ProgressBar
+        <ImageView
             android:id="@+id/widget_battery_bar"
-            style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="0dp"
             android:layout_height="8dp"
             android:layout_weight="1"
-            android:max="100"
-            android:progress="75"
-            android:progressDrawable="@drawable/widget_battery_progress" />
+            android:scaleType="fitXY" />
 
         <TextView
             android:id="@+id/widget_battery_text"

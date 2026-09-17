@@ -21,7 +21,9 @@ import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Update
@@ -31,6 +33,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +41,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,11 +51,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.colorfuljuice.bluetoothbattery.BluetoothBatteryViewModel
 import com.colorfuljuice.bluetoothbattery.R
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URL
+import com.colorfuljuice.bluetoothbattery.ui.components.UpdateDialog
+import com.colorfuljuice.bluetoothbattery.utils.UpdateStatus
 
 @Composable
 fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Modifier) {
@@ -62,12 +61,22 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
     val batteryRefreshInterval by viewModel.batteryRefreshInterval.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val useDynamicColor by viewModel.useDynamicColor.collectAsState()
+    val batteryChangeRefresh by viewModel.batteryChangeRefresh.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimeoutDialog by remember { mutableStateOf(false) }
     var showRefreshIntervalDialog by remember { mutableStateOf(false) }
     var showThemeModeDialog by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    val updateStatus by viewModel.updateStatus.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+
+    val updateRowSubtitle = when (val status = updateStatus) {
+        is UpdateStatus.Available -> stringResource(R.string.settings_update_available, status.version)
+        is UpdateStatus.UpToDate -> stringResource(R.string.settings_update_latest)
+        is UpdateStatus.Downloading -> stringResource(R.string.update_downloading, status.percent)
+        is UpdateStatus.Ready -> stringResource(R.string.update_ready, status.version)
+        else -> stringResource(R.string.settings_check_update_desc)
+    }
 
     Column(
         modifier = modifier
@@ -164,6 +173,14 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
                     subtitle = formatRefreshInterval(batteryRefreshInterval, context),
                     onClick = { showRefreshIntervalDialog = true }
                 )
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                SwitchSettingsItem(
+                    icon = Icons.Default.NotificationsActive,
+                    title = stringResource(R.string.settings_battery_change_refresh),
+                    subtitle = stringResource(R.string.settings_battery_change_refresh_desc),
+                    checked = batteryChangeRefresh,
+                    onCheckedChange = { viewModel.setBatteryChangeRefresh(it) }
+                )
             }
         }
 
@@ -182,17 +199,24 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column {
-                SettingsItem(
+                // 版本号:纯展示,不响应点击(原行为会触发检查更新,与下面"检查更新"行重复)
+                InfoItem(
                     icon = Icons.Default.SystemUpdate,
                     title = stringResource(R.string.settings_version),
-                    subtitle = try {
-                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.1beta"
-                    } catch (e: Exception) {
-                        "0.0.1beta"
-                    },
+                    subtitle = viewModel.currentVersionName
+                )
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsItem(
+                    icon = Icons.Default.Refresh,
+                    title = stringResource(R.string.settings_check_update),
+                    subtitle = updateRowSubtitle,
                     onClick = {
-                        scope.launch {
-                            checkForUpdates(context)
+                        showUpdateDialog = true
+                        when (updateStatus) {
+                            is UpdateStatus.Available,
+                            is UpdateStatus.Ready,
+                            is UpdateStatus.Downloading -> Unit
+                            else -> viewModel.checkForUpdates()
                         }
                     }
                 )
@@ -277,6 +301,24 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             }
         )
     }
+
+    if (showUpdateDialog) {
+        UpdateDialog(
+            status = updateStatus,
+            currentVersion = viewModel.currentVersionName,
+            onDownload = { viewModel.downloadUpdate() },
+            onCancelDownload = {
+                viewModel.cancelUpdateDownload()
+                showUpdateDialog = false
+            },
+            onInstall = { viewModel.installUpdate() },
+            onRetry = { viewModel.checkForUpdates() },
+            onDismiss = {
+                showUpdateDialog = false
+                viewModel.dismissUpdate()
+            }
+        )
+    }
 }
 
 private fun formatRefreshInterval(seconds: Int, context: android.content.Context): String {
@@ -324,6 +366,89 @@ fun SettingsItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * 纯展示行,不响应点击,无 ripple。常用于"版本号"这类只读信息,
+ * 避免和下方的"检查更新"功能重复。
+ */
+@Composable
+fun InfoItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * 开关行:左侧图标 + 标题副标题,右侧 Switch。点击整行也可以切换。
+ */
+@Composable
+fun SwitchSettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
@@ -420,44 +545,4 @@ fun LanguageDialog(
             }
         }
     )
-}
-
-private suspend fun checkForUpdates(context: android.content.Context) {
-    withContext(Dispatchers.IO) {
-        try {
-            val url = URL("https://api.github.com/repos/Kepler16f/ColorfulJuice/releases/latest")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
-
-            if (connection.responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().readText()
-                val tagMatch = Regex("\"tag_name\":\"([^\"]+)\"").find(response)
-                val latestVersion = tagMatch?.groupValues?.get(1) ?: ""
-                val currentVersion = try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
-                } catch (e: Exception) { "" }
-
-                withContext(Dispatchers.Main) {
-                    val message = if (latestVersion.isNotEmpty() && latestVersion != currentVersion) {
-                        context.getString(R.string.settings_update_available, latestVersion)
-                    } else {
-                        context.getString(R.string.settings_update_latest)
-                    }
-                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
-                }
-            } else {
-                withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, context.getString(R.string.settings_update_error), android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            connection.disconnect()
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                android.widget.Toast.makeText(context, context.getString(R.string.settings_update_error), android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 }

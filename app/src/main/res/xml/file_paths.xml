@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可暴露给系统安装器的路径。
+  与 UpdateManager.apkDir() 保持一致：
+    - 优先 getExternalFilesDir(DIRECTORY_DOWNLOADS) -> files/Download/
+    - 外部存储不可用时退回 filesDir/updates/
+-->
+<paths>
+    <external-files-path
+        name="updates_external"
+        path="Download/" />
+    <files-path
+        name="updates_internal"
+        path="updates/" />
+</paths>

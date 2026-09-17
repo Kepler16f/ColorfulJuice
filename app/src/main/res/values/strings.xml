@@ -34,6 +34,9 @@
     <string name="settings_connection">连接</string>
     <string name="settings_connection_timeout">连接超时</string>
     <string name="settings_battery_refresh_interval">电量自动刷新</string>
+    <string name="settings_battery_change_refresh">电量变化即刷新</string>
+    <string name="settings_battery_change_refresh_desc">应用内电量变化时,自动同步刷新桌面小组件</string>
+    <string name="widget_refresh">刷新</string>
     <string name="refresh_off">关闭</string>
     <string name="refresh_30s">每 30 秒</string>
     <string name="refresh_1min">每 1 分钟</string>
@@ -64,4 +67,28 @@
     <string name="settings_dynamic_color">莫奈取色</string>
     <string name="dynamic_color_on">已开启</string>
     <string name="dynamic_color_off">已关闭</string>
+
+    <!-- 应用内更新 -->
+    <string name="settings_check_update_desc">检查是否有新版本</string>
+    <string name="update_up_to_date">已是最新版本</string>
+    <string name="update_available_title">发现新版本</string>
+    <string name="update_current_version">当前版本：</string>
+    <string name="update_latest_version">最新版本：</string>
+    <string name="update_size">安装包大小：</string>
+    <string name="update_release_notes">更新内容</string>
+    <string name="update_download">下载更新</string>
+    <string name="update_downloading_title">正在下载更新</string>
+    <string name="update_downloading">已下载 %d%%</string>
+    <string name="update_ready_title">准备安装</string>
+    <string name="update_ready">%s 已下载完成，点击“立即安装”完成更新</string>
+    <string name="update_install">立即安装</string>
+    <string name="update_install_hint">安装需要「安装未知应用」权限，点击“立即安装”后将跳转授权</string>
+    <string name="update_later">稍后</string>
+    <string name="update_close">关闭</string>
+    <string name="update_retry">重试</string>
+    <string name="update_cancel">取消下载</string>
+    <string name="update_failed_title">更新失败</string>
+    <string name="update_failed_network">无法连接到更新服务器，请检查网络后重试</string>
+    <string name="update_failed_no_asset">该版本没有提供可下载的安装包</string>
+    <string name="update_failed_download">安装包下载失败，请重试</string>
 </resources>

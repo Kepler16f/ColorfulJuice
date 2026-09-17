@@ -8,7 +8,7 @@
     android:background="@drawable/widget_card_bg"
     android:gravity="center">
 
-    <!-- Row 1: Circular icon + percentage -->
+    <!-- Row 1: Circular icon + percentage + refresh button -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -36,8 +36,9 @@
         </FrameLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
@@ -59,6 +60,14 @@
                 android:ellipsize="end"
                 android:maxLines="2" />
         </LinearLayout>
+
+        <ImageView
+            android:id="@+id/widget_refresh_btn"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:src="@drawable/ic_widget_refresh"
+            android:contentDescription="@string/widget_refresh"
+            android:layout_marginStart="4dp" />
     </LinearLayout>
 
     <!-- Row 2: Single battery bar (always shown) -->

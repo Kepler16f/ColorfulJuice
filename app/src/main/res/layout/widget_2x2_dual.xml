@@ -8,6 +8,29 @@
     android:background="@drawable/widget_card_bg"
     android:gravity="center_vertical">
 
+    <!-- Header row: title + refresh button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="#888888" />
+
+        <ImageView
+            android:id="@+id/widget_refresh_btn"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_widget_refresh"
+            android:contentDescription="@string/widget_refresh" />
+    </LinearLayout>
+
     <!-- Device 1 -->
     <LinearLayout
         android:id="@+id/widget_dual_device1"

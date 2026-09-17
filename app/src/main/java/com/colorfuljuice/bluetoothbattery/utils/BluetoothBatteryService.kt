@@ -814,9 +814,38 @@ class BluetoothBatteryService(private val context: Context) {
         val currentDevices = _devices.value.toMutableList()
         val index = currentDevices.indexOfFirst { it.address == address }
         if (index != -1) {
-            currentDevices[index] = transform(currentDevices[index])
+            val before = currentDevices[index]
+            val after = transform(before)
+            currentDevices[index] = after
             _devices.value = currentDevices
+
+            // 电量 / 子电量 / 连接状态 真变化时通知监听者(由 ViewModel 决定要不要刷 widget)
+            val changed = before.batteryLevel != after.batteryLevel ||
+                    before.batteryLeft != after.batteryLeft ||
+                    before.batteryRight != after.batteryRight ||
+                    before.batteryCase != after.batteryCase ||
+                    before.isConnected != after.isConnected
+            if (changed) {
+                onDeviceChangedListener?.invoke(after)
+            }
         }
+    }
+
+    /** 当前是否已注册的电量变化监听器。 */
+    private var onDeviceChangedListener: ((BluetoothDeviceWithBattery) -> Unit)? = null
+
+    /**
+     * 注册/注销监听器。每当某个设备的电量、子电量、连接状态真变化时,
+     * 会回调 [listener](传最新一帧的 [BluetoothDeviceWithBattery])。
+     * 用于把"App 内电量更新"广播给桌面 widget。
+     */
+    fun setOnDeviceChangedListener(listener: ((BluetoothDeviceWithBattery) -> Unit)?) {
+        this.onDeviceChangedListener = listener
+    }
+
+    /** 一次性获取当前所有设备的电量快照(address -> level)。 */
+    fun getBatterySnapshot(): Map<String, Int?> {
+        return _devices.value.associate { it.address to it.batteryLevel }
     }
 
     fun destroy() {

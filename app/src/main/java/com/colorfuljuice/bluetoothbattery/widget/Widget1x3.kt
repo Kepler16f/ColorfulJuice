@@ -46,9 +46,11 @@ class Widget1x3 : AppWidgetProvider() {
                 updateWidget(context, manager, widgetId)
             }
         }
-        // Handle refresh broadcast
+        // Handle refresh: widget 自带的按钮 + App 侧主动广播都走这里
         if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
-            intent.action == "com.colorfuljuice.bluetoothbattery.WIDGET_REFRESH") {
+            intent.action == WidgetHelper.ACTION_REFRESH_NOW ||
+            intent.action == WidgetHelper.ACTION_APP_REFRESH
+        ) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, Widget1x3::class.java))
             for (id in ids) {
@@ -67,6 +69,8 @@ class Widget1x3 : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_battery_text, "--")
             views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)
             views.setImageViewResource(R.id.widget_device_icon, R.drawable.ic_device_other)
+            // 未选设备时,refresh 按钮无意义,隐藏
+            views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
         } else {
             val name = WidgetHelper.getDeviceName(context, address)
             val battery = WidgetHelper.getBatteryLevel(context, address)
@@ -86,9 +90,10 @@ class Widget1x3 : AppWidgetProvider() {
             } else {
                 views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)
             }
+            views.setViewVisibility(R.id.widget_refresh_btn, View.VISIBLE)
         }
 
-        // Click: select device if not configured, otherwise open app
+        // 整个卡片 click:已配置则打开 App,未配置则去选择
         val clickIntent = if (address == null) {
             Intent(context, WidgetConfigureActivity::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -105,6 +110,21 @@ class Widget1x3 : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         views.setOnClickPendingIntent(R.id.widget_1x3_root, pendingIntent)
+
+        // 右上角 refresh 按钮:发广播给本 provider,触发轻量本地刷新
+        if (address != null) {
+            val refreshIntent = Intent(context, Widget1x3::class.java).apply {
+                action = WidgetHelper.ACTION_REFRESH_NOW
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            }
+            val refreshPending = PendingIntent.getBroadcast(
+                context,
+                widgetId + 1000, // 用偏移量避免和根 click 的 requestCode 冲突
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_refresh_btn, refreshPending)
+        }
 
         manager.updateAppWidget(widgetId, views)
     }

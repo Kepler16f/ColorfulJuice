@@ -10,6 +10,8 @@
 - 连接超时可配置（3-30 秒）
 - 电量自动刷新（关闭 / 30秒-10分钟）
 - 设备管理：显示/隐藏指定设备
+- 桌面小部件：1×3 电量条 / 2×2 单设备 / 2×2 双设备
+- 应用内更新：检查 GitHub Release，应用内下载 APK 并调起系统安装器
 - 多语言支持：简体中文 / 繁體中文 / English
 - Material 3 设计风格，底部导航栏
 
@@ -48,12 +50,16 @@ app/src/main/java/com/colorfuljuice/bluetoothbattery/
 ├── MainActivity.kt              # 主界面，权限管理
 ├── BluetoothBatteryViewModel.kt # ViewModel，状态管理
 ├── utils/
-│   └── BluetoothBatteryService.kt  # 蓝牙核心服务
-└── ui/
-    ├── screens/
-    │   ├── DeviceListScreen.kt  # 设备列表页
-    │   └── SettingsScreen.kt    # 设置页
-    └── theme/                   # 主题配色
+│   ├── BluetoothBatteryService.kt  # 蓝牙核心服务
+│   └── UpdateManager.kt            # 应用内更新：检查 / 下载 / 安装
+├── ui/
+│   ├── screens/
+│   │   ├── DeviceListScreen.kt  # 设备列表页
+│   │   └── SettingsScreen.kt    # 设置页
+│   ├── components/
+│   │   └── UpdateDialog.kt      # 更新进度 / 安装对话框
+│   └── theme/                   # 主题配色
+└── widget/                      # 桌面小部件（1×3、2×2 单/双设备）
 ```
 
 ## License

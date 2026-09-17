@@ -8,22 +8,38 @@
     android:background="@drawable/widget_card_bg"
     android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/widget_device_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="设备名称"
-        android:textSize="12sp"
-        android:textColor="#999999"
-        android:ellipsize="end"
-        android:maxLines="2"
-        android:layout_marginBottom="4dp" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_device_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="设备名称"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:ellipsize="end"
+            android:maxLines="2" />
+
+        <ImageView
+            android:id="@+id/widget_refresh_btn"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_widget_refresh"
+            android:contentDescription="@string/widget_refresh"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp">
 
         <ImageView
             android:id="@+id/widget_device_icon"

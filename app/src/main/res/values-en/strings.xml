@@ -34,6 +34,9 @@
     <string name="settings_connection">Connection</string>
     <string name="settings_connection_timeout">Connection Timeout</string>
     <string name="settings_battery_refresh_interval">Battery Auto-Refresh</string>
+    <string name="settings_battery_change_refresh">Refresh on change</string>
+    <string name="settings_battery_change_refresh_desc">Sync desktop widgets whenever battery changes</string>
+    <string name="widget_refresh">Refresh</string>
     <string name="refresh_off">Off</string>
     <string name="refresh_30s">Every 30 seconds</string>
     <string name="refresh_1min">Every 1 minute</string>
@@ -64,4 +67,28 @@
     <string name="settings_dynamic_color">Monet Colors</string>
     <string name="dynamic_color_on">On</string>
     <string name="dynamic_color_off">Off</string>
+
+    <!-- In-app update -->
+    <string name="settings_check_update_desc">Check if a new version is available</string>
+    <string name="update_up_to_date">You are up to date</string>
+    <string name="update_available_title">Update Available</string>
+    <string name="update_current_version">Current version: </string>
+    <string name="update_latest_version">Latest version: </string>
+    <string name="update_size">Package size: </string>
+    <string name="update_release_notes">What\'s new</string>
+    <string name="update_download">Download update</string>
+    <string name="update_downloading_title">Downloading update</string>
+    <string name="update_downloading">Downloaded %d%%</string>
+    <string name="update_ready_title">Ready to install</string>
+    <string name="update_ready">%s has been downloaded. Tap Install now to finish updating.</string>
+    <string name="update_install">Install now</string>
+    <string name="update_install_hint">Installing requires permission to install unknown apps. Tap Install now and you will be asked to allow it.</string>
+    <string name="update_later">Later</string>
+    <string name="update_close">Close</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_cancel">Cancel download</string>
+    <string name="update_failed_title">Update Failed</string>
+    <string name="update_failed_network">Could not reach the update server. Check your connection and retry.</string>
+    <string name="update_failed_no_asset">This release has no downloadable package.</string>
+    <string name="update_failed_download">Failed to download the package. Please retry.</string>
 </resources>

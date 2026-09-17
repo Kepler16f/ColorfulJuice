@@ -2,8 +2,10 @@ package com.colorfuljuice.bluetoothbattery
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -12,6 +14,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothBatteryService
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
+import com.colorfuljuice.bluetoothbattery.utils.UpdateManager
+import com.colorfuljuice.bluetoothbattery.utils.UpdateStatus
+import com.colorfuljuice.bluetoothbattery.widget.WidgetHelper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,10 +33,18 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val bluetoothService = BluetoothBatteryService(application)
+    private val updateManager = UpdateManager(application)
     private val dataStore = application.dataStore
     private val gson = Gson()
 
     val devices: StateFlow<List<BluetoothDeviceWithBattery>> = bluetoothService.devices
+
+    // ---- 应用内更新 ----
+
+    val updateStatus: StateFlow<UpdateStatus> = updateManager.status
+
+    val currentVersionName: String
+        get() = updateManager.currentVersionName
 
     private val _isBluetoothEnabled = MutableStateFlow(false)
     val isBluetoothEnabled: StateFlow<Boolean> = _isBluetoothEnabled.asStateFlow()
@@ -71,18 +84,55 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _useDynamicColor = MutableStateFlow(true)
     val useDynamicColor: StateFlow<Boolean> = _useDynamicColor.asStateFlow()
 
+    // "电量变化即刷新 widget":打开后,Service 中任何一个设备的电量真变化,
+    // 我们把这一帧写进 SharedPreferences 缓存,并主动给三个 WidgetProvider 发广播。
+    // App 不在前台时由系统按 updatePeriodMillis(默认 30 分钟+)兜底。
+    private val _batteryChangeRefresh = MutableStateFlow(true)
+    val batteryChangeRefresh: StateFlow<Boolean> = _batteryChangeRefresh.asStateFlow()
+
     companion object {
+        private const val TAG = "BluetoothBatteryViewModel"
         private val KEY_HIDDEN_DEVICES = stringPreferencesKey("hidden_devices")
         private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_CONNECTION_TIMEOUT = intPreferencesKey("connection_timeout")
         private val KEY_BATTERY_REFRESH_INTERVAL = intPreferencesKey("battery_refresh_interval")
         private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         private val KEY_USE_DYNAMIC_COLOR = stringPreferencesKey("use_dynamic_color")
+        private val KEY_BATTERY_CHANGE_REFRESH = booleanPreferencesKey("battery_change_refresh")
     }
 
     init {
         checkBluetoothState()
         loadPreferences()
+        setupWidgetBridge()
+    }
+
+    /**
+     * 在 Service 和桌面 Widget 之间架桥:
+     *  1. 监听 Service 的"设备变化"回调,把最新电量写 SharedPreferences 缓存(供 widget 进程读);
+     *  2. 如果用户开启了"电量变化即刷新",立刻给三个 WidgetProvider 发广播,触发 updateAppWidget。
+     *  3. App 内 loadPairedDevices() 完成时也会调 [syncWidgets] 兜底一次。
+     */
+    private fun setupWidgetBridge() {
+        bluetoothService.setOnDeviceChangedListener { device ->
+            WidgetHelper.saveBatteryToCache(
+                getApplication(),
+                device.address,
+                device.batteryLevel
+            )
+            if (_batteryChangeRefresh.value) {
+                WidgetHelper.refreshAllWidgets(getApplication())
+            }
+        }
+    }
+
+    /** 主动给所有桌面 widget 触发一次重绘,带最新缓存。 */
+    fun syncWidgets() {
+        val ctx = getApplication<Application>()
+        // 先把当前最新电量快照一次性写进缓存(避免单个写入太多次 commit)
+        WidgetHelper.saveBatterySnapshotToCache(ctx, bluetoothService.getBatterySnapshot())
+        WidgetHelper.refreshAllWidgets(ctx)
+        Log.d(TAG, "syncWidgets: snapshot=${bluetoothService.getBatterySnapshot()}")
     }
 
     private fun loadPreferences() {
@@ -134,6 +184,13 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 preferences[KEY_USE_DYNAMIC_COLOR] ?: "true"
             }.collect { value ->
                 _useDynamicColor.value = value == "true"
+            }
+        }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_BATTERY_CHANGE_REFRESH] ?: true
+            }.collect { enabled ->
+                _batteryChangeRefresh.value = enabled
             }
         }
     }
@@ -219,8 +276,20 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             _isLoading.value = true
             _refreshCompleted.value = false
             bluetoothService.loadPairedDevices()
+            // 应用内刷新完成后,同步把最新电量快照写进 widget 缓存并触发重绘,
+            // 这是修复"应用打开了但桌面 widget 仍显示旧数据"的关键一步。
+            syncWidgets()
             _isLoading.value = false
             _refreshCompleted.value = true
+        }
+    }
+
+    fun setBatteryChangeRefresh(enabled: Boolean) {
+        viewModelScope.launch {
+            _batteryChangeRefresh.value = enabled
+            dataStore.edit { preferences ->
+                preferences[KEY_BATTERY_CHANGE_REFRESH] = enabled
+            }
         }
     }
 
@@ -249,6 +318,19 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             }
         }
     }
+
+    // ---- 应用内更新 ----
+
+    fun checkForUpdates() = updateManager.checkForUpdates()
+
+    fun downloadUpdate() = updateManager.startDownload()
+
+    fun cancelUpdateDownload() = updateManager.cancelDownload()
+
+    /** 返回 true 表示已拉起系统安装器。 */
+    fun installUpdate(): Boolean = updateManager.installPending()
+
+    fun dismissUpdate() = updateManager.reset()
 
     override fun onCleared() {
         super.onCleared()

@@ -34,6 +34,9 @@
     <string name="settings_connection">連線</string>
     <string name="settings_connection_timeout">連線逾時</string>
     <string name="settings_battery_refresh_interval">電量自動重新整理</string>
+    <string name="settings_battery_change_refresh">電量變化即時更新</string>
+    <string name="settings_battery_change_refresh_desc">應用程式內電量變化時,自動同步刷新桌面小工具</string>
+    <string name="widget_refresh">重新整理</string>
     <string name="refresh_off">關閉</string>
     <string name="refresh_30s">每 30 秒</string>
     <string name="refresh_1min">每 1 分鐘</string>
@@ -64,4 +67,28 @@
     <string name="settings_dynamic_color">莫奈取色</string>
     <string name="dynamic_color_on">已開啟</string>
     <string name="dynamic_color_off">已關閉</string>
+
+    <!-- 應用程式內更新 -->
+    <string name="settings_check_update_desc">檢查是否有新版本</string>
+    <string name="update_up_to_date">已是最新版本</string>
+    <string name="update_available_title">發現新版本</string>
+    <string name="update_current_version">目前版本：</string>
+    <string name="update_latest_version">最新版本：</string>
+    <string name="update_size">安裝檔大小：</string>
+    <string name="update_release_notes">更新內容</string>
+    <string name="update_download">下載更新</string>
+    <string name="update_downloading_title">正在下載更新</string>
+    <string name="update_downloading">已下載 %d%%</string>
+    <string name="update_ready_title">準備安裝</string>
+    <string name="update_ready">%s 已下載完成，點擊「立即安裝」完成更新</string>
+    <string name="update_install">立即安裝</string>
+    <string name="update_install_hint">安裝需要「安裝未知應用程式」權限，點擊「立即安裝」後將前往授權</string>
+    <string name="update_later">稍後</string>
+    <string name="update_close">關閉</string>
+    <string name="update_retry">重試</string>
+    <string name="update_cancel">取消下載</string>
+    <string name="update_failed_title">更新失敗</string>
+    <string name="update_failed_network">無法連線到更新伺服器，請檢查網路後重試</string>
+    <string name="update_failed_no_asset">該版本沒有提供可下載的安裝檔</string>
+    <string name="update_failed_download">安裝檔下載失敗，請重試</string>
 </resources>

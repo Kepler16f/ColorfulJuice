@@ -68,25 +68,30 @@ class Widget1x3 : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_device_name, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_battery_text, "--")
             views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)
+            views.setViewVisibility(R.id.widget_charging_icon, View.GONE)
             views.setImageViewResource(R.id.widget_device_icon, R.drawable.ic_device_other)
             // 未选设备时,refresh 按钮无意义,隐藏
             views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
         } else {
             val name = WidgetHelper.getDeviceName(context, address)
-            val battery = WidgetHelper.getBatteryLevel(context, address)
+            val info = WidgetHelper.getBatteryInfo(context, address)
+            val battery = info?.level
+            val charging = info?.isCharging == true
             val type = WidgetHelper.getDeviceType(context, address)
+            // 文字颜色始终按电量等级;白色只用于电量条
             val color = WidgetHelper.getBatteryColor(battery)
 
             views.setTextViewText(R.id.widget_device_name, name)
             views.setTextViewText(R.id.widget_battery_text, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_battery_text, color)
+            views.setViewVisibility(R.id.widget_charging_icon, if (charging) View.VISIBLE else View.GONE)
 
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_device_icon,
                 WidgetHelper.getDeviceTypeIconRes(type))
 
             if (battery != null) {
                 views.setViewVisibility(R.id.widget_battery_bar, View.VISIBLE)
-                WidgetHelper.setBatteryBar(context, views, R.id.widget_battery_bar, battery, battery)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_battery_bar, battery, battery, charging)
             } else {
                 views.setViewVisibility(R.id.widget_battery_bar, View.INVISIBLE)
             }

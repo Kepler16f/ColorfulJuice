@@ -16,4 +16,5 @@ val BatteryLow = Color(0xFFF44336)
 val BatteryUnknown = Color(0xFF9E9E9E)
 
 val ConnectedGreen = Color(0xFF4CAF50)
+val ChargingGreen = Color(0xFF4CAF50)
 val ErrorRed = Color(0xFFF44336)

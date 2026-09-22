@@ -55,6 +55,15 @@
             android:layout_weight="1"
             android:scaleType="fitXY" />
 
+        <ImageView
+            android:id="@+id/widget_charging_icon"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginStart="4dp"
+            android:src="@drawable/ic_charging_bolt"
+            android:contentDescription="@string/charging"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/widget_battery_text"
             android:layout_width="wrap_content"

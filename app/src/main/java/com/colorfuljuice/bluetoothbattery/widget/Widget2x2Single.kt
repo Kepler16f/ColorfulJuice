@@ -67,23 +67,30 @@ class Widget2x2Single : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_ring_device_name, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_ring_battery_pct, "--")
             views.setTextViewText(R.id.widget_fallback_pct, "--")
+            views.setViewVisibility(R.id.widget_ring_charging_icon, View.GONE)
+            views.setViewVisibility(R.id.widget_charging_icon, View.GONE)
             views.setImageViewResource(R.id.widget_ring_icon, R.drawable.ic_device_other)
             views.setImageViewResource(R.id.widget_ring_bg, R.drawable.widget_ring_battery_unknown)
             views.setInt(R.id.widget_ring_bg, "setImageLevel", 0)
             views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
         } else {
             val name = WidgetHelper.getDeviceName(context, address)
-            val battery = WidgetHelper.getBatteryLevel(context, address)
+            val info = WidgetHelper.getBatteryInfo(context, address)
+            val battery = info?.level
+            val charging = info?.isCharging == true
             val type = WidgetHelper.getDeviceType(context, address)
+            // 文字颜色始终按电量等级;白色只用于电量条/圆环
             val color = WidgetHelper.getBatteryColor(battery)
 
             // Ring section
             views.setTextViewText(R.id.widget_ring_device_name, name)
             views.setTextViewText(R.id.widget_ring_battery_pct, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_ring_battery_pct, color)
+            views.setViewVisibility(R.id.widget_ring_charging_icon, if (charging) View.VISIBLE else View.GONE)
 
-            // Ring color based on battery level
+            // Ring color based on battery level (white while charging)
             val ringRes = when {
+                charging -> R.drawable.widget_ring_battery_charging
                 battery == null -> R.drawable.widget_ring_battery_unknown
                 battery <= 20 -> R.drawable.widget_ring_battery_low
                 battery <= 50 -> R.drawable.widget_ring_battery_medium
@@ -97,8 +104,9 @@ class Widget2x2Single : AppWidgetProvider() {
                 WidgetHelper.getDeviceTypeIconRes(type))
 
             // Single battery bar
+            views.setViewVisibility(R.id.widget_charging_icon, if (charging) View.VISIBLE else View.GONE)
             if (battery != null) {
-                WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, battery, battery)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, battery, battery, charging)
                 views.setTextViewText(R.id.widget_fallback_pct, "$battery%")
                 views.setTextColor(R.id.widget_fallback_pct, color)
             } else {

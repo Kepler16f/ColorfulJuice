@@ -14,6 +14,7 @@ import android.util.Log
 import android.widget.RemoteViews
 import com.colorfuljuice.bluetoothbattery.R
 import com.colorfuljuice.bluetoothbattery.utils.DeviceType
+import com.colorfuljuice.bluetoothbattery.utils.SystemBatteryInfo
 
 object WidgetHelper {
     private const val TAG = "WidgetHelper"
@@ -65,22 +66,25 @@ object WidgetHelper {
     // fallback 到反射读 Android 系统蓝牙缓存。
     // 同时记录更新时间戳,可在 UI 上提示"数据可能过期"。
 
-    /** 把单条 (address -> level) 写入缓存。如果 level == null 表示不可用,缓存为 -1。 */
-    fun saveBatteryToCache(context: Context, address: String, level: Int?) {
+    /** 把单条 (address -> level + charging) 写入缓存。如果 level == null 表示不可用,缓存为 -1。 */
+    fun saveBatteryToCache(context: Context, address: String, level: Int?, isCharging: Boolean = false) {
         val safe = level ?: -1
         getCachePrefs(context).edit()
             .putInt("bat_$address", safe)
+            .putBoolean("charging_$address", isCharging)
             .putLong("bat_${address}_ts", System.currentTimeMillis())
             .apply()
     }
 
     /** 批量写入,在 WidgetHelper 内统一打批,避免频繁 commit。 */
-    fun saveBatterySnapshotToCache(context: Context, snapshot: Map<String, Int?>) {
+    fun saveBatterySnapshotToCache(context: Context, snapshot: Map<String, SystemBatteryInfo>) {
         if (snapshot.isEmpty()) return
         val editor = getCachePrefs(context).edit()
         val now = System.currentTimeMillis()
-        for ((address, level) in snapshot) {
+        for ((address, info) in snapshot) {
+            val level = if (info.level < 0) null else info.level
             editor.putInt("bat_$address", level ?: -1)
+            editor.putBoolean("charging_$address", info.isCharging)
             editor.putLong("bat_${address}_ts", now)
         }
         editor.apply()
@@ -91,6 +95,10 @@ object WidgetHelper {
         if (!getCachePrefs(context).contains("bat_$address")) return null
         val v = getCachePrefs(context).getInt("bat_$address", -1)
         return if (v < 0) null else v
+    }
+
+    fun getCachedCharging(context: Context, address: String): Boolean {
+        return getCachePrefs(context).getBoolean("charging_$address", false)
     }
 
     fun getCachedBatteryTimestamp(context: Context, address: String): Long {
@@ -164,19 +172,26 @@ object WidgetHelper {
         }
     }
 
+    /** 读电量+充电状态: 1) 优先 App 侧写入的缓存; 2) fallback 反射读系统蓝牙缓存。 */
     @SuppressLint("MissingPermission")
-    fun getBatteryLevel(context: Context, address: String): Int? {
-        // 1) 优先用我们自己缓存的最新值,这样即使 widget 进程独立运行、Service 进程不在,
-        //    也能拿到 App 最近一次刷新到的电量。
-        getCachedBatteryLevel(context, address)?.let { return it }
+    fun getBatteryInfo(context: Context, address: String): SystemBatteryInfo? {
+        val cached = getCachedBatteryLevel(context, address)
+        if (cached != null) {
+            return SystemBatteryInfo(cached, getCachedCharging(context, address))
+        }
 
-        // 2) fallback: 反射读系统蓝牙缓存。前提是本应用曾通过 GATT 主动连接过该设备,
-        //    或者设备主动发了 BATTERY_LEVEL_CHANGED 广播(不是所有设备都支持)。
         val device = findDeviceByName(context, address) ?: return null
         return try {
             val method = device.javaClass.getMethod("getBatteryLevel")
             val level = method.invoke(device) as? Int
-            if (level != null && level in 0..100) level else null
+            if (level != null && level in 0..100) {
+                var charging = false
+                try {
+                    val cm = device.javaClass.getMethod("getIsCharging")
+                    charging = cm.invoke(device) as? Boolean ?: false
+                } catch (_: Exception) {}
+                SystemBatteryInfo(level, charging)
+            } else null
         } catch (e: Exception) {
             null
         }
@@ -222,7 +237,8 @@ object WidgetHelper {
         }
     }
 
-    fun getBatteryColor(level: Int?): Int {
+    fun getBatteryColor(level: Int?, isCharging: Boolean = false): Int {
+        if (isCharging) return 0xFFFFFFFF.toInt()
         if (level == null) return 0xFF9E9E9E.toInt()
         return when {
             level > 60 -> 0xFF4CAF50.toInt()
@@ -244,11 +260,11 @@ object WidgetHelper {
         views.setImageViewBitmap(viewId, bitmap)
     }
 
-    fun setBatteryBar(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?) {
+    fun setBatteryBar(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?, isCharging: Boolean = false) {
         val density = context.resources.displayMetrics.density
         val widthPx = (300 * density).toInt()
         val heightPx = (6 * density).toInt()
-        val color = getBatteryColor(level)
+        val color = getBatteryColor(level, isCharging)
         val bgColor = 0xFFE0E0E0.toInt()
         val cornerRadius = 4 * density
 
@@ -273,11 +289,11 @@ object WidgetHelper {
         views.setImageViewBitmap(viewId, bitmap)
     }
 
-    fun setBatteryBarSmall(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?) {
+    fun setBatteryBarSmall(context: Context, views: RemoteViews, viewId: Int, progress: Int, level: Int?, isCharging: Boolean = false) {
         val density = context.resources.displayMetrics.density
         val widthPx = (300 * density).toInt()
         val heightPx = (5 * density).toInt()
-        val color = getBatteryColor(level)
+        val color = getBatteryColor(level, isCharging)
         val bgColor = 0xFFE8E8E8.toInt()
         val cornerRadius = 2 * density
 

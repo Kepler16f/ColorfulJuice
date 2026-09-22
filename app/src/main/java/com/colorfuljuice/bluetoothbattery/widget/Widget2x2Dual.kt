@@ -71,47 +71,57 @@ class Widget2x2Dual : AppWidgetProvider() {
         // Device 1
         if (address1 != null) {
             val name1 = WidgetHelper.getDeviceName(context, address1)
-            val battery1 = WidgetHelper.getBatteryLevel(context, address1)
+            val info1 = WidgetHelper.getBatteryInfo(context, address1)
+            val battery1 = info1?.level
+            val charging1 = info1?.isCharging == true
             val type1 = WidgetHelper.getDeviceType(context, address1)
+            // 文字颜色始终按电量等级;白色只用于电量条
             val color1 = WidgetHelper.getBatteryColor(battery1)
 
             views.setTextViewText(R.id.widget_dual_name1, name1)
             views.setTextViewText(R.id.widget_dual_pct1, if (battery1 != null) "$battery1%" else "?")
             views.setTextColor(R.id.widget_dual_pct1, color1)
+            views.setViewVisibility(R.id.widget_dual_charging1, if (charging1) View.VISIBLE else View.GONE)
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_dual_icon1,
                 WidgetHelper.getDeviceTypeIconRes(type1))
 
             if (battery1 != null) {
-                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar1, battery1, battery1)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar1, battery1, battery1, charging1)
             } else {
                 WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar1, 0, null)
             }
         } else {
             views.setTextViewText(R.id.widget_dual_name1, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_dual_pct1, "--")
+            views.setViewVisibility(R.id.widget_dual_charging1, View.GONE)
         }
 
         // Device 2
         if (address2 != null) {
             val name2 = WidgetHelper.getDeviceName(context, address2)
-            val battery2 = WidgetHelper.getBatteryLevel(context, address2)
+            val info2 = WidgetHelper.getBatteryInfo(context, address2)
+            val battery2 = info2?.level
+            val charging2 = info2?.isCharging == true
             val type2 = WidgetHelper.getDeviceType(context, address2)
+            // 文字颜色始终按电量等级;白色只用于电量条
             val color2 = WidgetHelper.getBatteryColor(battery2)
 
             views.setTextViewText(R.id.widget_dual_name2, name2)
             views.setTextViewText(R.id.widget_dual_pct2, if (battery2 != null) "$battery2%" else "?")
             views.setTextColor(R.id.widget_dual_pct2, color2)
+            views.setViewVisibility(R.id.widget_dual_charging2, if (charging2) View.VISIBLE else View.GONE)
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_dual_icon2,
                 WidgetHelper.getDeviceTypeIconRes(type2))
 
             if (battery2 != null) {
-                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar2, battery2, battery2)
+                WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar2, battery2, battery2, charging2)
             } else {
                 WidgetHelper.setBatteryBar(context, views, R.id.widget_dual_bar2, 0, null)
             }
         } else {
             views.setTextViewText(R.id.widget_dual_name2, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_dual_pct2, "--")
+            views.setViewVisibility(R.id.widget_dual_charging2, View.GONE)
         }
 
         // 两个设备都配齐了 refresh 按钮才有意义

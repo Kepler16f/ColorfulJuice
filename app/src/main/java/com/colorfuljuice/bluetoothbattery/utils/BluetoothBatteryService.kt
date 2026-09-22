@@ -45,8 +45,12 @@ data class BluetoothDeviceWithBattery(
     val deviceType: DeviceType = DeviceType.OTHER,
     val batteryLeft: Int? = null,
     val batteryRight: Int? = null,
-    val batteryCase: Int? = null
+    val batteryCase: Int? = null,
+    val isCharging: Boolean = false
 )
+
+/** 系统反射读到的电量 + 充电状态。 */
+data class SystemBatteryInfo(val level: Int, val isCharging: Boolean)
 
 class BluetoothBatteryService(private val context: Context) {
 
@@ -54,6 +58,7 @@ class BluetoothBatteryService(private val context: Context) {
         private const val TAG = "BluetoothBatteryService"
         private val BATTERY_SERVICE_UUID: UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
         private val BATTERY_LEVEL_UUID: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
+        private val BATTERY_POWER_STATE_UUID: UUID = UUID.fromString("00002a1b-0000-1000-8000-00805f9b34fb")
         private val CLIENT_CONFIG_DESCRIPTOR_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         // Headphone-specific battery UUIDs (left/right/case)
@@ -148,7 +153,8 @@ class BluetoothBatteryService(private val context: Context) {
                             it.copy(
                                 isConnected = true,
                                 isConnecting = false,
-                                batteryLevel = sysBattery ?: it.batteryLevel,
+                                batteryLevel = sysBattery?.level ?: it.batteryLevel,
+                                isCharging = sysBattery?.isCharging ?: it.isCharging,
                                 error = null
                             )
                         }
@@ -212,7 +218,7 @@ class BluetoothBatteryService(private val context: Context) {
             val sysBattery = getBatteryLevelFromSystem(item.device)
             if (sysBattery != null) {
                 updateDeviceByAddress(item.address) {
-                    it.copy(batteryLevel = sysBattery)
+                    it.copy(batteryLevel = sysBattery.level, isCharging = sysBattery.isCharging)
                 }
             }
         }
@@ -306,7 +312,9 @@ class BluetoothBatteryService(private val context: Context) {
         val pairedDevices = getBondedDevices()
         val deviceList = pairedDevices.map { device ->
             val isConnected = isDeviceCurrentlyConnected(device)
-            val batteryLevel = getBatteryLevelFromSystem(device)
+            val sysBattery = getBatteryLevelFromSystem(device)
+            val batteryLevel = sysBattery?.level
+            val isCharging = sysBattery?.isCharging ?: false
             val name = try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     device.alias ?: device.name ?: "Unknown Device"
@@ -324,7 +332,8 @@ class BluetoothBatteryService(private val context: Context) {
                 address = device.address,
                 batteryLevel = batteryLevel,
                 isConnected = isConnected,
-                deviceType = type
+                deviceType = type,
+                isCharging = isCharging
             )
         }
         _devices.value = deviceList
@@ -334,10 +343,11 @@ class BluetoothBatteryService(private val context: Context) {
     private fun refreshConnectedState() {
         val currentList = _devices.value.map { item ->
             val connected = isDeviceCurrentlyConnected(item.device)
-            val battery = if (item.batteryLevel == null) getBatteryLevelFromSystem(item.device) else item.batteryLevel
+            val sysBattery = getBatteryLevelFromSystem(item.device)
             item.copy(
                 isConnected = connected,
-                batteryLevel = battery
+                batteryLevel = sysBattery?.level ?: item.batteryLevel,
+                isCharging = sysBattery?.isCharging ?: item.isCharging
             )
         }
         _devices.value = currentList
@@ -373,15 +383,19 @@ class BluetoothBatteryService(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    fun getBatteryLevelFromSystem(device: BluetoothDevice): Int? {
+    fun getBatteryLevelFromSystem(device: BluetoothDevice): SystemBatteryInfo? {
+        var level: Int? = null
+        var charging = false
         try {
             val method = device.javaClass.getMethod("getBatteryLevel")
-            val level = method.invoke(device) as? Int
-            if (level != null && level in 0..100) {
-                return level
-            }
+            val l = method.invoke(device) as? Int
+            if (l != null && l in 0..100) level = l
         } catch (_: Exception) {}
-        return null
+        try {
+            val method = device.javaClass.getMethod("getIsCharging")
+            charging = method.invoke(device) as? Boolean ?: false
+        } catch (_: Exception) {}
+        return level?.let { SystemBatteryInfo(it, charging) }
     }
 
     @SuppressLint("MissingPermission")
@@ -393,10 +407,11 @@ class BluetoothBatteryService(private val context: Context) {
         val sysConnected = isDeviceCurrentlyConnected(device)
 
         if (sysBattery != null) {
-            Log.d(TAG, "Obtained battery from system reflection for $address: $sysBattery%")
+            Log.d(TAG, "Obtained battery from system reflection for $address: ${sysBattery.level}% charging=${sysBattery.isCharging}")
             updateDeviceByAddress(address) {
                 it.copy(
-                    batteryLevel = sysBattery,
+                    batteryLevel = sysBattery.level,
+                    isCharging = sysBattery.isCharging,
                     isConnected = true,
                     isConnecting = false,
                     error = null
@@ -408,7 +423,8 @@ class BluetoothBatteryService(private val context: Context) {
             it.copy(
                 isConnecting = true,
                 error = null,
-                batteryLevel = sysBattery ?: it.batteryLevel,
+                batteryLevel = sysBattery?.level ?: it.batteryLevel,
+                isCharging = sysBattery?.isCharging ?: it.isCharging,
                 isConnected = sysConnected || it.isConnected
             )
         }
@@ -517,6 +533,24 @@ class BluetoothBatteryService(private val context: Context) {
                             } else {
                                 handleMissingBatteryService(address, "Battery Characteristic not found")
                             }
+
+                            // Battery Power State (0x2A1B): bit 2 = Charging
+                            val powerStateCh = batteryService.getCharacteristic(BATTERY_POWER_STATE_UUID)
+                            if (powerStateCh != null) {
+                                gatt.setCharacteristicNotification(powerStateCh, true)
+                                val psDescriptor = powerStateCh.getDescriptor(CLIENT_CONFIG_DESCRIPTOR_UUID)
+                                if (psDescriptor != null) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        gatt.writeDescriptor(psDescriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        psDescriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                        @Suppress("DEPRECATION")
+                                        gatt.writeDescriptor(psDescriptor)
+                                    }
+                                }
+                                gatt.readCharacteristic(powerStateCh)
+                            }
                         } else {
                             handleMissingBatteryService(address, "Battery Service (0x180F) not found")
                         }
@@ -595,7 +629,8 @@ class BluetoothBatteryService(private val context: Context) {
     }
 
     private fun handleCharacteristicBattery(uuid: UUID, value: ByteArray?, status: Int, address: String) {
-        if (status == BluetoothGatt.GATT_SUCCESS && uuid == BATTERY_LEVEL_UUID && value != null && value.isNotEmpty()) {
+        if (status != BluetoothGatt.GATT_SUCCESS || value == null || value.isEmpty()) return
+        if (uuid == BATTERY_LEVEL_UUID) {
             val batteryLevel = value[0].toInt() and 0xFF
             Log.d(TAG, "Read GATT battery level for $address: $batteryLevel%")
             updateDeviceByAddress(address) {
@@ -605,6 +640,13 @@ class BluetoothBatteryService(private val context: Context) {
                     isConnecting = false,
                     error = null
                 )
+            }
+        } else if (uuid == BATTERY_POWER_STATE_UUID) {
+            // Battery Power State, bit 2 (0x04) = Charging
+            val charging = (value[0].toInt() and 0x04) != 0
+            Log.d(TAG, "Read GATT battery power state for $address: charging=$charging")
+            updateDeviceByAddress(address) {
+                it.copy(isCharging = charging)
             }
         }
     }
@@ -616,7 +658,8 @@ class BluetoothBatteryService(private val context: Context) {
             it.copy(
                 isConnecting = false,
                 isConnected = true,
-                batteryLevel = sysBattery ?: it.batteryLevel,
+                batteryLevel = sysBattery?.level ?: it.batteryLevel,
+                isCharging = sysBattery?.isCharging ?: it.isCharging,
                 error = if (sysBattery != null || it.batteryLevel != null) null else reason
             )
         }
@@ -819,11 +862,12 @@ class BluetoothBatteryService(private val context: Context) {
             currentDevices[index] = after
             _devices.value = currentDevices
 
-            // 电量 / 子电量 / 连接状态 真变化时通知监听者(由 ViewModel 决定要不要刷 widget)
+            // 电量 / 子电量 / 充电状态 / 连接状态 真变化时通知监听者(由 ViewModel 决定要不要刷 widget)
             val changed = before.batteryLevel != after.batteryLevel ||
                     before.batteryLeft != after.batteryLeft ||
                     before.batteryRight != after.batteryRight ||
                     before.batteryCase != after.batteryCase ||
+                    before.isCharging != after.isCharging ||
                     before.isConnected != after.isConnected
             if (changed) {
                 onDeviceChangedListener?.invoke(after)
@@ -843,9 +887,9 @@ class BluetoothBatteryService(private val context: Context) {
         this.onDeviceChangedListener = listener
     }
 
-    /** 一次性获取当前所有设备的电量快照(address -> level)。 */
-    fun getBatterySnapshot(): Map<String, Int?> {
-        return _devices.value.associate { it.address to it.batteryLevel }
+    /** 一次性获取当前所有设备的电量+充电状态快照。 */
+    fun getBatterySnapshot(): Map<String, SystemBatteryInfo> {
+        return _devices.value.associate { it.address to SystemBatteryInfo(it.batteryLevel ?: -1, it.isCharging) }
     }
 
     fun destroy() {

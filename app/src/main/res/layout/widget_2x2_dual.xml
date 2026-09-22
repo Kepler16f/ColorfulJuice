@@ -71,6 +71,15 @@
                 android:layout_weight="1"
                 android:scaleType="fitXY" />
 
+            <ImageView
+                android:id="@+id/widget_dual_charging1"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_charging_bolt"
+                android:contentDescription="@string/charging"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/widget_dual_pct1"
                 android:layout_width="wrap_content"
@@ -130,6 +139,15 @@
                 android:layout_height="6dp"
                 android:layout_weight="1"
                 android:scaleType="fitXY" />
+
+            <ImageView
+                android:id="@+id/widget_dual_charging2"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_charging_bolt"
+                android:contentDescription="@string/charging"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/widget_dual_pct2"

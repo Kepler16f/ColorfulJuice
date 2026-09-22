@@ -118,7 +118,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             WidgetHelper.saveBatteryToCache(
                 getApplication(),
                 device.address,
-                device.batteryLevel
+                device.batteryLevel,
+                device.isCharging
             )
             if (_batteryChangeRefresh.value) {
                 WidgetHelper.refreshAllWidgets(getApplication())

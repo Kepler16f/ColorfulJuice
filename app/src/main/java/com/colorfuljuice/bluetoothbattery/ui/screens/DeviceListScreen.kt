@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
@@ -52,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -64,6 +66,7 @@ import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryHigh
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryLow
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryMedium
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryUnknown
+import com.colorfuljuice.bluetoothbattery.ui.theme.ChargingGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ConnectedGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ErrorRed
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
@@ -462,7 +465,7 @@ fun DeviceCard(
                 if (device.deviceType == DeviceType.HEADPHONE && (device.batteryLeft != null || device.batteryRight != null || device.batteryCase != null)) {
                     HeadphoneBatteryIndicator(device = device)
                 } else {
-                    BatteryIndicator(batteryLevel = device.batteryLevel)
+                    BatteryIndicator(batteryLevel = device.batteryLevel, isCharging = device.isCharging)
                 }
             }
 
@@ -478,23 +481,23 @@ fun DeviceCard(
 fun HeadphoneBatteryIndicator(device: BluetoothDeviceWithBattery) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (device.batteryLeft != null) {
-            SubBatteryRow(label = stringResource(R.string.battery_left), level = device.batteryLeft)
+            SubBatteryRow(label = stringResource(R.string.battery_left), level = device.batteryLeft, isCharging = device.isCharging)
         }
         if (device.batteryRight != null) {
-            SubBatteryRow(label = stringResource(R.string.battery_right), level = device.batteryRight)
+            SubBatteryRow(label = stringResource(R.string.battery_right), level = device.batteryRight, isCharging = device.isCharging)
         }
         if (device.batteryCase != null) {
-            SubBatteryRow(label = stringResource(R.string.battery_case), level = device.batteryCase)
+            SubBatteryRow(label = stringResource(R.string.battery_case), level = device.batteryCase, isCharging = device.isCharging)
         }
         // If no split data, show main battery
         if (device.batteryLeft == null && device.batteryRight == null && device.batteryCase == null) {
-            BatteryIndicator(batteryLevel = device.batteryLevel)
+            BatteryIndicator(batteryLevel = device.batteryLevel, isCharging = device.isCharging)
         }
     }
 }
 
 @Composable
-fun SubBatteryRow(label: String, level: Int) {
+fun SubBatteryRow(label: String, level: Int, isCharging: Boolean = false) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -506,16 +509,27 @@ fun SubBatteryRow(label: String, level: Int) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = "$level%",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    level > 60 -> BatteryHigh
-                    level > 20 -> BatteryMedium
-                    else -> BatteryLow
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isCharging) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = stringResource(R.string.charging),
+                        tint = ChargingGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
                 }
-            )
+                Text(
+                    text = "$level%",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        level > 60 -> BatteryHigh
+                        level > 20 -> BatteryMedium
+                        else -> BatteryLow
+                    }
+                )
+            }
         }
         Spacer(modifier = Modifier.height(4.dp))
         LinearProgressIndicator(
@@ -524,7 +538,7 @@ fun SubBatteryRow(label: String, level: Int) {
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
-            color = when {
+            color = if (isCharging) Color.White else when {
                 level > 60 -> BatteryHigh
                 level > 20 -> BatteryMedium
                 else -> BatteryLow
@@ -535,7 +549,7 @@ fun SubBatteryRow(label: String, level: Int) {
 }
 
 @Composable
-fun BatteryIndicator(batteryLevel: Int?) {
+fun BatteryIndicator(batteryLevel: Int?, isCharging: Boolean = false) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -547,17 +561,28 @@ fun BatteryIndicator(batteryLevel: Int?) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = if (batteryLevel != null) "$batteryLevel%" else stringResource(R.string.device_battery_unknown),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    batteryLevel == null -> BatteryUnknown
-                    batteryLevel > 60 -> BatteryHigh
-                    batteryLevel > 20 -> BatteryMedium
-                    else -> BatteryLow
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isCharging) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = stringResource(R.string.charging),
+                        tint = ChargingGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
                 }
-            )
+                Text(
+                    text = if (batteryLevel != null) "$batteryLevel%" else stringResource(R.string.device_battery_unknown),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        batteryLevel == null -> BatteryUnknown
+                        batteryLevel > 60 -> BatteryHigh
+                        batteryLevel > 20 -> BatteryMedium
+                        else -> BatteryLow
+                    }
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         LinearProgressIndicator(
@@ -567,6 +592,7 @@ fun BatteryIndicator(batteryLevel: Int?) {
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp)),
             color = when {
+                isCharging -> Color.White
                 batteryLevel == null -> BatteryUnknown
                 batteryLevel > 60 -> BatteryHigh
                 batteryLevel > 20 -> BatteryMedium

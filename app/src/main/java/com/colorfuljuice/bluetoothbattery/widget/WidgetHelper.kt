@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -33,6 +34,26 @@ object WidgetHelper {
      */
     const val ACTION_APP_REFRESH = "com.colorfuljuice.bluetoothbattery.WIDGET_APP_REFRESH"
 
+    /**
+     * 定时闹钟触发的周期刷新(WidgetTickReceiver)。
+     * 与 [ACTION_REFRESH_NOW] 的区别:tick 强制读系统,但"数值没变就跳过 updateAppWidget",
+     * 避免每分钟无谓地重绘桌面。
+     */
+    const val ACTION_WIDGET_TICK = "com.colorfuljuice.bluetoothbattery.WIDGET_WIDGET_TICK"
+
+    /**
+     * 附在刷新 intent 上的"显示内容没变就跳过重绘"开关,由 [refreshAllWidgets] 写入。
+     * Provider 缺省按各自语义决定(tick / App 同步默认跳过,手动刷新不跳过)。
+     */
+    const val EXTRA_SKIP_UNCHANGED = "skip_unchanged"
+
+    /**
+     * App 侧写入的电量缓存的有效期。
+     * 超过这个时间就认为缓存已经"冻住"了(典型场景:App 进程被回收,不再有人写缓存),
+     * 此时 widget 不再无条件信任缓存,而是自己反射去读系统蓝牙缓存。
+     */
+    private const val CACHE_TTL_MS = 5 * 60 * 1000L
+
     fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -54,10 +75,33 @@ object WidgetHelper {
     }
 
     fun removeWidgetConfig(context: Context, widgetId: Int) {
+        // 2x2 双设备 widget 用的是 widget_<id>_1 / widget_<id>_2,也要一并清掉
         getPrefs(context).edit()
             .remove("widget_$widgetId")
+            .remove("widget_${widgetId}_1")
+            .remove("widget_${widgetId}_2")
             .remove("widget_type_$widgetId")
+            .remove(renderSignatureKey("1x3", widgetId))
+            .remove(renderSignatureKey("2x2_single", widgetId))
+            .remove(renderSignatureKey("2x2_dual", widgetId))
             .apply()
+    }
+
+    // ----- 渲染签名 -----
+    // 周期 tick 时如果显示内容一点没变,就跳过 updateAppWidget:
+    // 省电、也避免桌面因为"内容相同"的 RemoteViews 反复重排。
+    // 注意只在 tick / app 主动同步时使用;系统触发的 onUpdate 必须无条件渲染,
+    // 否则桌面进程重启后可能一直停留在 initialLayout。
+
+    private fun renderSignatureKey(scope: String, widgetId: Int) = "render_sig_${scope}_$widgetId"
+
+    fun getRenderSignature(context: Context, scope: String, widgetId: Int): String? {
+        return getPrefs(context).getString(renderSignatureKey(scope, widgetId), null)
+    }
+
+    fun setRenderSignature(context: Context, scope: String, widgetId: Int, signature: String) {
+        // commit:tick 进程随时可能被冻结,apply 的异步写可能丢
+        getPrefs(context).edit().putString(renderSignatureKey(scope, widgetId), signature).commit()
     }
 
     // ----- 跨进程电量缓存 -----
@@ -69,11 +113,13 @@ object WidgetHelper {
     /** 把单条 (address -> level + charging) 写入缓存。如果 level == null 表示不可用,缓存为 -1。 */
     fun saveBatteryToCache(context: Context, address: String, level: Int?, isCharging: Boolean = false) {
         val safe = level ?: -1
+        // commit 而非 apply:widget 经常被系统拉起到新进程里读这份缓存,
+        // apply 只是排队异步落盘,进程被回收时那次写入可能根本没落地。
         getCachePrefs(context).edit()
             .putInt("bat_$address", safe)
             .putBoolean("charging_$address", isCharging)
             .putLong("bat_${address}_ts", System.currentTimeMillis())
-            .apply()
+            .commit()
     }
 
     /** 批量写入,在 WidgetHelper 内统一打批,避免频繁 commit。 */
@@ -87,7 +133,7 @@ object WidgetHelper {
             editor.putBoolean("charging_$address", info.isCharging)
             editor.putLong("bat_${address}_ts", now)
         }
-        editor.apply()
+        editor.commit()
     }
 
     /** 读缓存。返回 null 表示没有任何记录。 */
@@ -106,45 +152,76 @@ object WidgetHelper {
     }
 
     /**
-     * 主动给所有已添加的 widget 触发一次 updateAppWidget。
-     * 用 setComponent + sendBroadcast 把广播精确送到三个 WidgetProvider,
-     * 它们各自在 onReceive 处理 ACTION_APP_REFRESH 即可。
+     * 主动让三个 WidgetProvider 全部重绘一次。
+     *
+     * 这里直接实例化 provider 并调用 [AppWidgetProvider.onReceive],而不是 sendBroadcast:
+     * App 进程本来就在运行,走广播要经过系统队列(后台/冻结进程时还会被延后或合并),
+     * 直接调用是同步的,点了就立刻画。
+     *
+     * @param force true = 跳过缓存新鲜度判断,强制读系统蓝牙缓存(tick / 手动刷新语义);
+     *              false = 信任 App 刚写进去的电量缓存(App 主动同步语义)。
+     * @param skipUnchanged true = 显示内容一点没变就跳过 updateAppWidget(省电);
+     *                      false = 无条件重绘(用于重启/升级后强制回写)。
      */
-    fun refreshAllWidgets(context: Context) {
-        try {
-            val providers = listOf(
-                Class.forName(context.packageName + ".widget.Widget1x3"),
-                Class.forName(context.packageName + ".widget.Widget2x2Single"),
-                Class.forName(context.packageName + ".widget.Widget2x2Dual")
-            )
-            for (provider in providers) {
-                val intent = Intent(context, provider).apply {
-                    action = ACTION_APP_REFRESH
-                }
-                context.sendBroadcast(intent)
+    fun refreshAllWidgets(context: Context, force: Boolean = false, skipUnchanged: Boolean = true) {
+        val action = if (force) ACTION_WIDGET_TICK else ACTION_APP_REFRESH
+        val intent = Intent().setAction(action).putExtra(EXTRA_SKIP_UNCHANGED, skipUnchanged)
+        val providers = listOf(Widget1x3(), Widget2x2Single(), Widget2x2Dual())
+        for (provider in providers) {
+            try {
+                provider.onReceive(context, intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "refreshAllWidgets failed for ${provider.javaClass.simpleName}", e)
             }
-            Log.d(TAG, "refreshAllWidgets: dispatched APP_REFRESH to 3 providers")
-        } catch (e: Exception) {
-            Log.e(TAG, "refreshAllWidgets failed", e)
         }
+        Log.d(TAG, "refreshAllWidgets: rendered 3 providers (force=$force, skip=$skipUnchanged)")
     }
 
     fun updateWidgetById(context: Context, widgetId: Int, mode: String) {
-        val providerClass = when (mode) {
-            "2x2_dual" -> Widget2x2Dual::class.java
-            "2x2_single" -> Widget2x2Single::class.java
-            else -> Widget1x3::class.java
+        val provider = when (mode) {
+            "2x2_dual" -> Widget2x2Dual()
+            "2x2_single" -> Widget2x2Single()
+            else -> Widget1x3()
         }
         try {
-            val intent = Intent(context, providerClass).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
-            }
-            context.sendBroadcast(intent)
+            provider.onReceive(
+                context,
+                Intent().setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(widgetId))
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update widget $widgetId", e)
         }
+        // 配置/换设备后把心跳闹钟补上(闹钟是跨重启自续的,重复排一次无害)
+        WidgetRefreshScheduler.scheduleNext(context)
     }
+
+    /** 当前桌面上是否还有本应用的任意一个 widget。 */
+    fun hasAnyWidget(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context) ?: return false
+        return providerClasses(context).any { manager.getAppWidgetIds(ComponentName(context, it)).isNotEmpty() }
+    }
+
+    /** 所有已配置 widget 绑定的设备地址(去重)。 */
+    fun getWidgetAddresses(context: Context): List<String> {
+        val manager = AppWidgetManager.getInstance(context) ?: return emptyList()
+        val prefs = getPrefs(context)
+        val result = linkedSetOf<String>()
+        for (cls in providerClasses(context)) {
+            for (id in manager.getAppWidgetIds(ComponentName(context, cls))) {
+                getDeviceAddress(context, id)?.takeIf { it.isNotBlank() }?.let { result.add(it) }
+                prefs.getString("widget_${id}_1", null)?.takeIf { it.isNotBlank() }?.let { result.add(it) }
+                prefs.getString("widget_${id}_2", null)?.takeIf { it.isNotBlank() }?.let { result.add(it) }
+            }
+        }
+        return result.toList()
+    }
+
+    private fun providerClasses(context: Context): List<Class<*>> = listOf(
+        Widget1x3::class.java,
+        Widget2x2Single::class.java,
+        Widget2x2Dual::class.java
+    )
 
     @SuppressLint("MissingPermission")
     fun findDeviceByName(context: Context, address: String): BluetoothDevice? {
@@ -172,29 +249,51 @@ object WidgetHelper {
         }
     }
 
-    /** 读电量+充电状态: 1) 优先 App 侧写入的缓存; 2) fallback 反射读系统蓝牙缓存。 */
+    /**
+     * 读电量+充电状态,优先级:
+     *  1) App 侧写入的缓存,且未超过 [CACHE_TTL_MS](说明 App 还在正常喂数据);
+     *  2) 自己反射读系统蓝牙缓存 —— 这一步不需要 App 进程存活、不需要建立 BLE 连接,
+     *     是"App 没打开 / 进程被回收后 widget 仍能拿到新数据"的关键;
+     *  3) 系统也读不到时,才退回旧缓存(至少还能显示上次的值)。
+     *
+     * @param forceSystem 跳过第 1 步,直接读系统。手动刷新按钮和周期 tick 必须走这条路:
+     *                    否则 App 被"墓碑"冻住后的 5 分钟里缓存仍然"新鲜",
+     *                    点刷新拿到的还是旧值 —— 表现就是"点了没反应"。
+     */
     @SuppressLint("MissingPermission")
-    fun getBatteryInfo(context: Context, address: String): SystemBatteryInfo? {
+    @JvmOverloads
+    fun getBatteryInfo(context: Context, address: String, forceSystem: Boolean = false): SystemBatteryInfo? {
         val cached = getCachedBatteryLevel(context, address)
-        if (cached != null) {
+        val isFresh = System.currentTimeMillis() - getCachedBatteryTimestamp(context, address) < CACHE_TTL_MS
+
+        if (!forceSystem && cached != null && isFresh) {
             return SystemBatteryInfo(cached, getCachedCharging(context, address))
         }
 
-        val device = findDeviceByName(context, address) ?: return null
-        return try {
-            val method = device.javaClass.getMethod("getBatteryLevel")
-            val level = method.invoke(device) as? Int
-            if (level != null && level in 0..100) {
-                var charging = false
-                try {
-                    val cm = device.javaClass.getMethod("getIsCharging")
-                    charging = cm.invoke(device) as? Boolean ?: false
-                } catch (_: Exception) {}
-                SystemBatteryInfo(level, charging)
-            } else null
-        } catch (e: Exception) {
-            null
+        readSystemBattery(context, address)?.let { live ->
+            saveBatteryToCache(context, address, live.level, live.isCharging)
+            return live
         }
+
+        return cached?.let { SystemBatteryInfo(it, getCachedCharging(context, address)) }
+    }
+
+    /** 反射读系统蓝牙缓存里的电量与充电状态(隐藏 API,失败返回 null)。 */
+    @SuppressLint("MissingPermission")
+    private fun readSystemBattery(context: Context, address: String): SystemBatteryInfo? {
+        val device = findDeviceByName(context, address) ?: return null
+        var level: Int? = null
+        var charging = false
+        try {
+            val method = device.javaClass.getMethod("getBatteryLevel")
+            val l = method.invoke(device) as? Int
+            if (l != null && l in 0..100) level = l
+        } catch (_: Exception) {}
+        try {
+            val method = device.javaClass.getMethod("getIsCharging")
+            charging = method.invoke(device) as? Boolean ?: false
+        } catch (_: Exception) {}
+        return level?.let { SystemBatteryInfo(it, charging) }
     }
 
     @SuppressLint("MissingPermission")

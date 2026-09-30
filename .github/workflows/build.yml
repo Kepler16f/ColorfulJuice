@@ -20,16 +20,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v5
       with:
-        java-version: '17'
+        # Gradle 9 要求 JDK >= 17;AGP 9.x + Kotlin 2.4 工具链推荐 21,用 17 有构建失败风险
+        java-version: '21'
         distribution: 'temurin'
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
-        gradle-version: '8.2'
+        gradle-version: '9.6.0'
 
     - name: Extract version name
       id: version
@@ -37,8 +38,12 @@ jobs:
         VERSION=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
         echo "versionName=$VERSION" >> $GITHUB_OUTPUT
 
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
     - name: Build Debug APK
-      run: gradle assembleDebug
+      # 用 wrapper 而不是环境里的全局 gradle,保证本地和 CI 跑的是同一个 Gradle 版本
+      run: ./gradlew assembleDebug --stacktrace
 
     - name: Rename APK
       run: mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/ColorfulJuice${{ steps.version.outputs.versionName }}.apk"

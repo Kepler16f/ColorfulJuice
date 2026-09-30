@@ -2,6 +2,9 @@ package com.colorfuljuice.bluetoothbattery
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -17,6 +20,7 @@ import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
 import com.colorfuljuice.bluetoothbattery.utils.UpdateManager
 import com.colorfuljuice.bluetoothbattery.utils.UpdateStatus
 import com.colorfuljuice.bluetoothbattery.widget.WidgetHelper
+import com.colorfuljuice.bluetoothbattery.widget.WidgetRefreshScheduler
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,7 +103,18 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
         private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         private val KEY_USE_DYNAMIC_COLOR = stringPreferencesKey("use_dynamic_color")
         private val KEY_BATTERY_CHANGE_REFRESH = booleanPreferencesKey("battery_change_refresh")
+
+        /** 两次 widget 全量刷新之间的最小间隔,用于合并刷新风暴。 */
+        private const val WIDGET_REFRESH_MIN_INTERVAL_MS = 1500L
     }
+
+    // Service 在连接/读取阶段会非常密集地回调(一个设备一次连接就有 连接中→已连接→电量 多次变化,
+    // "连接全部"时更是 N 个设备叠加)。每个回调都立刻发广播 + 同步绘制 RemoteViews,
+    // 会把主线程消息队列塞满,BroadcastReceiver 排队积压 => widget 看起来"滞后/卡住"。
+    // 这里做尾部合并:窗口内的多次请求只留最后一次真正执行。
+    private val widgetRefreshHandler = Handler(Looper.getMainLooper())
+    private var pendingWidgetRefresh: Runnable? = null
+    private var lastWidgetRefreshAt = 0L
 
     init {
         checkBluetoothState()
@@ -114,6 +129,10 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
      *  3. App 内 loadPairedDevices() 完成时也会调 [syncWidgets] 兜底一次。
      */
     private fun setupWidgetBridge() {
+        // 兜底:"强行停止"会清掉 AlarmManager 里的闹钟,而 widget 可能还挂在桌面上,
+        // 不补的话心跳就永久断线。这里用 ensureScheduled 而不是无脑 scheduleNext ——
+        // 后者每次冷启动都会把下一次 tick 往后推整整一个周期,频繁开 App 反而让心跳老轮不到。
+        WidgetRefreshScheduler.ensureScheduled(getApplication())
         bluetoothService.setOnDeviceChangedListener { device ->
             WidgetHelper.saveBatteryToCache(
                 getApplication(),
@@ -122,9 +141,22 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 device.isCharging
             )
             if (_batteryChangeRefresh.value) {
-                WidgetHelper.refreshAllWidgets(getApplication())
+                scheduleWidgetRefresh()
             }
         }
+    }
+
+    /** 合并窗口内的 widget 刷新请求,只执行最后一次。 */
+    private fun scheduleWidgetRefresh() {
+        pendingWidgetRefresh?.let { widgetRefreshHandler.removeCallbacks(it) }
+        val runnable = Runnable {
+            pendingWidgetRefresh = null
+            lastWidgetRefreshAt = SystemClock.elapsedRealtime()
+            WidgetHelper.refreshAllWidgets(getApplication())
+        }
+        pendingWidgetRefresh = runnable
+        val elapsed = SystemClock.elapsedRealtime() - lastWidgetRefreshAt
+        widgetRefreshHandler.postDelayed(runnable, (WIDGET_REFRESH_MIN_INTERVAL_MS - elapsed).coerceAtLeast(0L))
     }
 
     /** 主动给所有桌面 widget 触发一次重绘,带最新缓存。 */
@@ -335,6 +367,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
 
     override fun onCleared() {
         super.onCleared()
+        pendingWidgetRefresh?.let { widgetRefreshHandler.removeCallbacks(it) }
+        pendingWidgetRefresh = null
         bluetoothService.destroy()
     }
 }

@@ -6,15 +6,32 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import com.colorfuljuice.bluetoothbattery.MainActivity
 import com.colorfuljuice.bluetoothbattery.R
+import com.colorfuljuice.bluetoothbattery.utils.DeviceType
 
 class Widget2x2Dual : AppWidgetProvider() {
 
     companion object {
         const val ACTION_CONFIGURE = "com.colorfuljuice.bluetoothbattery.ACTION_CONFIGURE_WIDGET_2X2_DUAL"
+        private const val SCOPE = "2x2_dual"
+        private const val TAG = "Widget2x2Dual"
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        // 第一个 2x2 双设备 widget 上桌:启动心跳闹钟(冻结进程只有它能叫醒)
+        WidgetRefreshScheduler.scheduleNext(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        if (!WidgetHelper.hasAnyWidget(context)) {
+            WidgetRefreshScheduler.cancel(context)
+        }
     }
 
     override fun onUpdate(
@@ -22,6 +39,7 @@ class Widget2x2Dual : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        // 系统触发:无条件渲染,不做签名跳过
         for (widgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, widgetId)
         }
@@ -36,45 +54,113 @@ class Widget2x2Dual : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_CONFIGURE) {
-            val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
-            if (widgetId != -1) {
-                val address1 = intent.getStringExtra("device_address_1")
-                val address2 = intent.getStringExtra("device_address_2")
-                WidgetHelper.getPrefs(context).edit()
-                    .putString("widget_${widgetId}_1", address1)
-                    .putString("widget_${widgetId}_2", address2)
-                    .apply()
-                WidgetHelper.saveWidgetType(context, widgetId, "2x2_dual")
-                val manager = AppWidgetManager.getInstance(context)
-                updateWidget(context, manager, widgetId)
+        // 系统的 ACTION_APPWIDGET_UPDATE 由 super 分发到 onUpdate(),不要再手动刷一遍
+        when (intent.action) {
+            ACTION_CONFIGURE -> {
+                val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+                if (widgetId != -1) {
+                    val address1 = intent.getStringExtra("device_address_1")
+                    val address2 = intent.getStringExtra("device_address_2")
+                    WidgetHelper.getPrefs(context).edit()
+                        .putString("widget_${widgetId}_1", address1)
+                        .putString("widget_${widgetId}_2", address2)
+                        .commit()
+                    WidgetHelper.saveWidgetType(context, widgetId, "2x2_dual")
+                    val manager = AppWidgetManager.getInstance(context)
+                    updateWidget(context, manager, widgetId, forceSystem = true)
+                    WidgetRefreshScheduler.scheduleNext(context)
+                }
             }
-        }
-        if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
-            intent.action == WidgetHelper.ACTION_REFRESH_NOW ||
-            intent.action == WidgetHelper.ACTION_APP_REFRESH
-        ) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, Widget2x2Dual::class.java))
-            for (id in ids) {
-                updateWidget(context, manager, id)
+            // 周期心跳:强制读系统缓存,值没变就跳过重绘
+            WidgetHelper.ACTION_WIDGET_TICK -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val skip = intent.getBooleanExtra(WidgetHelper.EXTRA_SKIP_UNCHANGED, true)
+                for (id in manager.getAppWidgetIds(ComponentName(context, Widget2x2Dual::class.java))) {
+                    updateWidget(context, manager, id, forceSystem = true, skipIfUnchanged = skip)
+                }
+            }
+            // App 侧主动同步:信任刚写入的缓存
+            WidgetHelper.ACTION_APP_REFRESH -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val skip = intent.getBooleanExtra(WidgetHelper.EXTRA_SKIP_UNCHANGED, true)
+                for (id in manager.getAppWidgetIds(ComponentName(context, Widget2x2Dual::class.java))) {
+                    updateWidget(context, manager, id, skipIfUnchanged = skip)
+                }
+            }
+            // 手动点刷新:立刻强制重绘,再补一次深度读取
+            WidgetHelper.ACTION_REFRESH_NOW -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, Widget2x2Dual::class.java))
+                for (id in ids) {
+                    updateWidget(context, manager, id, forceSystem = true)
+                }
+                deepRefresh(context, manager, ids)
             }
         }
     }
 
-    private fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
-        val views = RemoteViews(context.packageName, R.layout.widget_2x2_dual)
+    /**
+     * 系统反射读不到电量的设备必须真连一次 BLE 才有值。
+     * 用 goAsync() 把广播存活时间撑到读取完成,读到就回写缓存并再渲染一次。
+     */
+    private fun deepRefresh(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val prefs = WidgetHelper.getPrefs(context)
+        val addresses = linkedSetOf<String>()
+        for (id in ids) {
+            prefs.getString("widget_${id}_1", null)?.takeIf { it.isNotBlank() }?.let { addresses.add(it) }
+            prefs.getString("widget_${id}_2", null)?.takeIf { it.isNotBlank() }?.let { addresses.add(it) }
+        }
+        if (addresses.isEmpty()) return
+        val pendingResult = goAsync()
+        WidgetDeepRefresh.start(context, addresses.toList()) {
+            try {
+                for (id in ids) {
+                    updateWidget(context, manager, id)
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
+    /**
+     * @param forceSystem 跳过 App 缓存新鲜度判断,强制反射读系统蓝牙缓存
+     * @param skipIfUnchanged 显示内容和上一帧完全一致时不调用 updateAppWidget
+     */
+    private fun updateWidget(
+        context: Context,
+        manager: AppWidgetManager,
+        widgetId: Int,
+        forceSystem: Boolean = false,
+        skipIfUnchanged: Boolean = false
+    ) {
         val prefs = WidgetHelper.getPrefs(context)
         val address1 = prefs.getString("widget_${widgetId}_1", null)
         val address2 = prefs.getString("widget_${widgetId}_2", null)
 
+        val name1 = address1?.let { WidgetHelper.getDeviceName(context, it) }
+        val info1 = address1?.let { WidgetHelper.getBatteryInfo(context, it, forceSystem) }
+        val battery1 = info1?.level
+        val charging1 = info1?.isCharging == true
+        val type1: DeviceType = address1?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
+
+        val name2 = address2?.let { WidgetHelper.getDeviceName(context, it) }
+        val info2 = address2?.let { WidgetHelper.getBatteryInfo(context, it, forceSystem) }
+        val battery2 = info2?.level
+        val charging2 = info2?.isCharging == true
+        val type2: DeviceType = address2?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
+
+        // 渲染签名:内容没变就别去打扰桌面进程
+        val signature = "$address1|$name1|$battery1|$charging1|$type1|$address2|$name2|$battery2|$charging2|$type2"
+        if (skipIfUnchanged && WidgetHelper.getRenderSignature(context, SCOPE, widgetId) == signature) {
+            Log.d(TAG, "skip unchanged render for widget $widgetId")
+            return
+        }
+
+        val views = RemoteViews(context.packageName, R.layout.widget_2x2_dual)
+
         // Device 1
         if (address1 != null) {
-            val name1 = WidgetHelper.getDeviceName(context, address1)
-            val info1 = WidgetHelper.getBatteryInfo(context, address1)
-            val battery1 = info1?.level
-            val charging1 = info1?.isCharging == true
-            val type1 = WidgetHelper.getDeviceType(context, address1)
             // 文字颜色始终按电量等级;白色只用于电量条
             val color1 = WidgetHelper.getBatteryColor(battery1)
 
@@ -98,11 +184,6 @@ class Widget2x2Dual : AppWidgetProvider() {
 
         // Device 2
         if (address2 != null) {
-            val name2 = WidgetHelper.getDeviceName(context, address2)
-            val info2 = WidgetHelper.getBatteryInfo(context, address2)
-            val battery2 = info2?.level
-            val charging2 = info2?.isCharging == true
-            val type2 = WidgetHelper.getDeviceType(context, address2)
             // 文字颜色始终按电量等级;白色只用于电量条
             val color2 = WidgetHelper.getBatteryColor(battery2)
 
@@ -149,7 +230,7 @@ class Widget2x2Dual : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_2x2_dual_root, pendingIntent)
 
-        // 右上角 refresh 按钮:发广播给本 provider,触发轻量本地刷新
+        // 右上角 refresh 按钮:发广播给本 provider,触发强制本地刷新
         if (!address1.isNullOrBlank() && !address2.isNullOrBlank()) {
             val refreshIntent = Intent(context, Widget2x2Dual::class.java).apply {
                 action = WidgetHelper.ACTION_REFRESH_NOW
@@ -165,5 +246,6 @@ class Widget2x2Dual : AppWidgetProvider() {
         }
 
         manager.updateAppWidget(widgetId, views)
+        WidgetHelper.setRenderSignature(context, SCOPE, widgetId, signature)
     }
 }

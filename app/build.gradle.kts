@@ -12,8 +12,8 @@ android {
         applicationId = "com.colorfuljuice.bluetoothbattery"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.1.4_dev1"
+        versionCode = 6
+        versionName = "0.1.4_dev2"
     }
 
     buildTypes {

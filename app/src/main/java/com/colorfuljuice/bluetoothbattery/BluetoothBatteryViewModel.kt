@@ -138,7 +138,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 getApplication(),
                 device.address,
                 device.batteryLevel,
-                device.isCharging
+                device.isCharging,
+                device.chargingKnown
             )
             if (_batteryChangeRefresh.value) {
                 scheduleWidgetRefresh()

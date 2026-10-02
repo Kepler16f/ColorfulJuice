@@ -110,27 +110,41 @@ object WidgetHelper {
     // fallback 到反射读 Android 系统蓝牙缓存。
     // 同时记录更新时间戳,可在 UI 上提示"数据可能过期"。
 
-    /** 把单条 (address -> level + charging) 写入缓存。如果 level == null 表示不可用,缓存为 -1。 */
-    fun saveBatteryToCache(context: Context, address: String, level: Int?, isCharging: Boolean = false) {
+    /**
+     * 把单条 (address -> level + charging) 写入缓存。如果 level == null 表示不可用,缓存为 -1。
+     * [chargingKnown]=false 表示这个充电状态只是占位值(反射没读到),此时保留缓存里的旧值,
+     * 避免把 GATT 读到的"充电中"冲掉。
+     */
+    fun saveBatteryToCache(
+        context: Context,
+        address: String,
+        level: Int?,
+        isCharging: Boolean,
+        chargingKnown: Boolean = true
+    ) {
         val safe = level ?: -1
+        val charging = if (chargingKnown) isCharging else getCachedCharging(context, address)
         // commit 而非 apply:widget 经常被系统拉起到新进程里读这份缓存,
         // apply 只是排队异步落盘,进程被回收时那次写入可能根本没落地。
         getCachePrefs(context).edit()
             .putInt("bat_$address", safe)
-            .putBoolean("charging_$address", isCharging)
+            .putBoolean("charging_$address", charging)
             .putLong("bat_${address}_ts", System.currentTimeMillis())
             .commit()
     }
 
-    /** 批量写入,在 WidgetHelper 内统一打批,避免频繁 commit。 */
+    /** 批量写入,在 WidgetHelper 内统一打批,避免频繁 commit。充电态未知时保留缓存旧值。 */
     fun saveBatterySnapshotToCache(context: Context, snapshot: Map<String, SystemBatteryInfo>) {
         if (snapshot.isEmpty()) return
-        val editor = getCachePrefs(context).edit()
+        val cachePrefs = getCachePrefs(context)
+        val editor = cachePrefs.edit()
         val now = System.currentTimeMillis()
         for ((address, info) in snapshot) {
             val level = if (info.level < 0) null else info.level
             editor.putInt("bat_$address", level ?: -1)
-            editor.putBoolean("charging_$address", info.isCharging)
+            val charging = if (info.chargingKnown) info.isCharging
+                           else cachePrefs.getBoolean("charging_$address", false)
+            editor.putBoolean("charging_$address", charging)
             editor.putLong("bat_${address}_ts", now)
         }
         editor.commit()
@@ -271,8 +285,18 @@ object WidgetHelper {
         }
 
         readSystemBattery(context, address)?.let { live ->
-            saveBatteryToCache(context, address, live.level, live.isCharging)
-            return live
+            // 反射拿不到充电态时保留缓存旧值(可能是 GATT 读到的"充电中")
+            var charging = if (live.chargingKnown) live.isCharging else getCachedCharging(context, address)
+            var chargingKnown = live.chargingKnown
+            // 充电态从未真正读到过时,用电量涨跌推断:涨=充电中,跌=未充电。
+            // 手写笔等外设不暴露任何充电特征,这是它们唯一的充电检测途径;
+            // 上下涨落是电量报告的物理约束,推断可靠,且之后电量的真实读数(特征/反射)随时可以纠正。
+            if (!chargingKnown && cached != null && live.level != cached) {
+                charging = live.level > cached
+                chargingKnown = true
+            }
+            saveBatteryToCache(context, address, live.level, charging, chargingKnown = true)
+            return SystemBatteryInfo(live.level, charging)
         }
 
         return cached?.let { SystemBatteryInfo(it, getCachedCharging(context, address)) }
@@ -284,6 +308,7 @@ object WidgetHelper {
         val device = findDeviceByName(context, address) ?: return null
         var level: Int? = null
         var charging = false
+        var chargingKnown = false
         try {
             val method = device.javaClass.getMethod("getBatteryLevel")
             val l = method.invoke(device) as? Int
@@ -291,9 +316,13 @@ object WidgetHelper {
         } catch (_: Exception) {}
         try {
             val method = device.javaClass.getMethod("getIsCharging")
-            charging = method.invoke(device) as? Boolean ?: false
+            val c = method.invoke(device) as? Boolean
+            if (c != null) {
+                charging = c
+                chargingKnown = true
+            }
         } catch (_: Exception) {}
-        return level?.let { SystemBatteryInfo(it, charging) }
+        return level?.let { SystemBatteryInfo(it, charging, chargingKnown) }
     }
 
     @SuppressLint("MissingPermission")

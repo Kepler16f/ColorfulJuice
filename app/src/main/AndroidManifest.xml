@@ -9,7 +9,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
 
     <!-- Widget 心跳闹钟:到点把被"墓碑"冻结的进程重新叫醒,强制刷一次电量条 -->
+    <!-- SCHEDULE_EXACT_ALARM 覆盖 API 31-32(默认授予);API 33+ 换用自动授予的 USE_EXACT_ALARM,
+         否则 Android 14 起默认拒绝,退化为非精确闹钟会被系统合并,widget 刷新明显滞后 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- 应用内更新：检查 GitHub Release 并下载 APK -->

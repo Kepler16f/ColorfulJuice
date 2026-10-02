@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 这里把它在 widget 刷新场景下按需调一次:
  *
  *  - 只在用户手动点刷新时触发,周期 tick 不做(每分钟建一次连接太吵);
- *  - 只针对"系统反射读不到电量"的设备;
+ *  - 只针对"系统反射读不到电量"或"已连接但充电状态还没读到过"的设备;
  *  - 只把"真读到值"的结果写回缓存,失败保持原样(否则缓存被写成 -1,widget 反而变 "?")。
  *
  * 注意:本调用发生在广播接收器里,用 [android.content.BroadcastReceiver.goAsync] 撑住超时窗口。
@@ -67,15 +67,22 @@ object WidgetDeepRefresh {
                 svc.setOnDeviceChangedListener { device ->
                     val level = device.batteryLevel
                     if (device.address in targets0 && level != null && level in 0..100) {
-                        WidgetHelper.saveBatteryToCache(appContext, device.address, level, device.isCharging)
+                        WidgetHelper.saveBatteryToCache(
+                            appContext, device.address, level,
+                            device.isCharging, device.chargingKnown
+                        )
                         changed.set(true)
                     }
                 }
 
                 svc.loadPairedDevices()
-                // 只深度读"系统反射也拿不到"的设备,能反射拿到的早被 getBatteryInfo 写进缓存了
+                // 两类设备需要真连一次 GATT:
+                //  1. 系统反射读不到电量的(键盘/鼠标等 HID);
+                //  2. 已连接但充电状态还没真正读到过的(耳机/手环 —— 反射能拿到电量,
+                //     但充电态只有 GATT 的 Battery Power State / Battery Level Status 才有)。
                 val targets = svc.devices.value.filter {
-                    it.address in targets0 && it.batteryLevel == null
+                    it.address in targets0 &&
+                            (it.batteryLevel == null || (!it.chargingKnown && it.isConnected))
                 }
 
                 if (targets.isNotEmpty()) {

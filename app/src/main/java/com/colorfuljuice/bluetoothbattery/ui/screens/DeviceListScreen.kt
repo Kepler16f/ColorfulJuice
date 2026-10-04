@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,7 +91,11 @@ fun DeviceTypeIcon(deviceType: DeviceType, modifier: Modifier = Modifier, alpha:
 }
 
 @Composable
-fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Modifier) {
+fun DeviceListScreen(
+    viewModel: BluetoothBatteryViewModel,
+    onOpenDevice: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val devices by viewModel.devices.collectAsState()
     val visibleDevices by viewModel.visibleDevices.collectAsState()
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
@@ -184,7 +189,8 @@ fun DeviceListScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = 
                         DeviceCard(
                             device = device,
                             onConnect = { viewModel.connectToDevice(device) },
-                            onDisconnect = { viewModel.disconnectDevice(device.address) }
+                            onDisconnect = { viewModel.disconnectDevice(device.address) },
+                            onOpen = { onOpenDevice(device.address) }
                         )
                     }
                 }
@@ -369,12 +375,15 @@ fun EmptyState() {
 fun DeviceCard(
     device: BluetoothDeviceWithBattery,
     onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onOpen: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .animateContentSize()
+            // 点卡片空白处进详情页;内部按钮的点击事件自己消费,不会冒泡到这
+            .clickable(onClick = onOpen),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {

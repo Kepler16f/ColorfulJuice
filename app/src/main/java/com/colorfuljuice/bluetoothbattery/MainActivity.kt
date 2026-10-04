@@ -53,6 +53,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.colorfuljuice.bluetoothbattery.ui.screens.DeviceDetailScreen
 import com.colorfuljuice.bluetoothbattery.ui.screens.DeviceListScreen
 import com.colorfuljuice.bluetoothbattery.ui.screens.SettingsScreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.BluetoothBatteryTheme
@@ -71,6 +72,11 @@ class MainActivity : ComponentActivity() {
             viewModel?.loadPairedDevices()
         }
     }
+
+    // 通知权限(Android 13+):低电量提醒用。只在首次启动问一次,拒绝也不再骚扰。
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +106,7 @@ class MainActivity : ComponentActivity() {
                     checkAndRequestPermissions()
                 } else {
                     vm.loadPairedDevices()
+                    maybeRequestNotificationPermission()
                 }
             }
 
@@ -191,6 +198,18 @@ class MainActivity : ComponentActivity() {
             false
         }
     }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        // 只问一次:拒了就静默关闭低电量提醒,不再打断用户
+        val prefs = getSharedPreferences("settings_mirror", MODE_PRIVATE)
+        if (prefs.getBoolean("notif_perm_asked", false)) return
+        prefs.edit().putBoolean("notif_perm_asked", true).apply()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -199,34 +218,39 @@ fun MainApp(viewModel: BluetoothBatteryViewModel) {
     val navController = rememberNavController()
     val currentRoute by navController.currentBackStackEntryAsState()
     val currentDestination = currentRoute?.destination?.route
+    // 详情页有独立的页头/返回逻辑,主框架的顶栏和底部导航只在两个主页签显示
+    val showBars = currentDestination == "devices" || currentDestination == "settings"
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                actions = {
-                    if (currentDestination == "devices") {
-                        IconButton(onClick = { viewModel.connectAllDevices() }) {
-                            Icon(
-                                imageVector = Icons.Default.BluetoothConnected,
-                                contentDescription = stringResource(R.string.device_connect_all)
-                            )
+            if (showBars) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    actions = {
+                        if (currentDestination == "devices") {
+                            IconButton(onClick = { viewModel.connectAllDevices() }) {
+                                Icon(
+                                    imageVector = Icons.Default.BluetoothConnected,
+                                    contentDescription = stringResource(R.string.device_connect_all)
+                                )
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
+            if (showBars) {
+                NavigationBar {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Devices, contentDescription = null) },
                     label = { Text(stringResource(R.string.nav_devices)) },
@@ -253,6 +277,7 @@ fun MainApp(viewModel: BluetoothBatteryViewModel) {
                         }
                     }
                 )
+                }
             }
         }
     ) { paddingValues ->
@@ -262,10 +287,30 @@ fun MainApp(viewModel: BluetoothBatteryViewModel) {
             modifier = Modifier.padding(paddingValues)
         ) {
             composable("devices") {
-                DeviceListScreen(viewModel = viewModel)
+                DeviceListScreen(
+                    viewModel = viewModel,
+                    onOpenDevice = { address ->
+                        navController.navigate("device?address=${android.net.Uri.encode(address)}")
+                    }
+                )
             }
             composable("settings") {
                 SettingsScreen(viewModel = viewModel)
+            }
+            composable(
+                "device?address={address}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("address") {
+                        type = androidx.navigation.NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { entry ->
+                DeviceDetailScreen(
+                    viewModel = viewModel,
+                    address = entry.arguments?.getString("address").orEmpty(),
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

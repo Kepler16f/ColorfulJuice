@@ -26,6 +26,14 @@
             android:maxLines="2" />
 
         <ImageView
+            android:id="@+id/widget_conn_dot"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:src="@drawable/widget_conn_dot"
+            android:contentDescription="@string/widget_conn_state"
+            android:layout_marginStart="4dp" />
+
+        <ImageView
             android:id="@+id/widget_refresh_btn"
             android:layout_width="22dp"
             android:layout_height="22dp"

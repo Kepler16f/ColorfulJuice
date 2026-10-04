@@ -325,6 +325,25 @@ object WidgetHelper {
         return level?.let { SystemBatteryInfo(it, charging, chargingKnown) }
     }
 
+    /**
+     * 反射读设备的系统级连接状态(与 Service.isDeviceCurrentlyConnected 同一招)。
+     * widget 渲染连接状态小圆点用;反射失败按"未连接"处理 —— 系统缓存还在、
+     * 设备实际已离开的场景远多于反射失效的场景。
+     */
+    @SuppressLint("MissingPermission")
+    fun isDeviceConnected(context: Context, address: String): Boolean {
+        val device = findDeviceByName(context, address) ?: return false
+        return try {
+            device.javaClass.getMethod("isConnected").invoke(device) as? Boolean ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** 连接状态圆点颜色:绿 = 已连接,灰 = 未连接。 */
+    fun getConnDotColor(connected: Boolean): Int =
+        if (connected) 0xFF4CAF50.toInt() else 0xFFBDBDBD.toInt()
+
     @SuppressLint("MissingPermission")
     fun getDeviceType(context: Context, address: String): DeviceType {
         val device = findDeviceByName(context, address) ?: return DeviceType.OTHER

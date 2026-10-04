@@ -92,4 +92,23 @@
     <string name="update_failed_network">Could not reach the update server. Check your connection and retry.</string>
     <string name="update_failed_no_asset">This release has no downloadable package.</string>
     <string name="update_failed_download">Failed to download the package. Please retry.</string>
+    <!-- Low battery alert -->
+    <string name="settings_low_battery_alert">Low battery alert</string>
+    <string name="low_battery_channel_name">Low battery alert</string>
+    <string name="alert_low_battery_title">“%1$s” battery is low</string>
+    <string name="alert_low_battery_text">Battery at %1$d%% (alert threshold %2$d%%)</string>
+
+    <!-- Device details -->
+    <string name="detail_title">Device details</string>
+    <string name="detail_status_connected">Connected</string>
+    <string name="detail_status_disconnected">Not connected</string>
+    <string name="detail_status_connecting">Connecting…</string>
+    <string name="detail_charging_state">Charging state</string>
+    <string name="battery_not_charging">Not charging</string>
+    <string name="detail_deep_read">Re-read</string>
+    <string name="detail_deep_read_desc">Open one BLE connection to read battery &amp; charging state</string>
+    <string name="detail_device_missing">Device not found or removed</string>
+
+    <!-- Widget connection state -->
+    <string name="widget_conn_state">Connection state</string>
 </resources>

@@ -62,9 +62,11 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
     val themeMode by viewModel.themeMode.collectAsState()
     val useDynamicColor by viewModel.useDynamicColor.collectAsState()
     val batteryChangeRefresh by viewModel.batteryChangeRefresh.collectAsState()
+    val lowBatteryThreshold by viewModel.lowBatteryThreshold.collectAsState()
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimeoutDialog by remember { mutableStateOf(false) }
     var showRefreshIntervalDialog by remember { mutableStateOf(false) }
+    var showLowBatteryDialog by remember { mutableStateOf(false) }
     var showThemeModeDialog by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     val updateStatus by viewModel.updateStatus.collectAsState()
@@ -181,6 +183,14 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
                     checked = batteryChangeRefresh,
                     onCheckedChange = { viewModel.setBatteryChangeRefresh(it) }
                 )
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsItem(
+                    icon = Icons.Default.NotificationsActive,
+                    title = stringResource(R.string.settings_low_battery_alert),
+                    subtitle = if (lowBatteryThreshold > 0) "$lowBatteryThreshold%"
+                               else stringResource(R.string.refresh_off),
+                    onClick = { showLowBatteryDialog = true }
+                )
             }
         }
 
@@ -281,6 +291,26 @@ fun SettingsScreen(viewModel: BluetoothBatteryViewModel, modifier: Modifier = Mo
             onSelected = { value ->
                 viewModel.setBatteryRefreshInterval(value)
                 showRefreshIntervalDialog = false
+            }
+        )
+    }
+
+    if (showLowBatteryDialog) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.settings_low_battery_alert),
+            options = listOf(
+                Triple(0, stringResource(R.string.refresh_off), "off"),
+                Triple(10, "10%", "10"),
+                Triple(15, "15%", "15"),
+                Triple(20, "20%", "20"),
+                Triple(30, "30%", "30"),
+                Triple(50, "50%", "50")
+            ),
+            selectedValue = lowBatteryThreshold,
+            onDismiss = { showLowBatteryDialog = false },
+            onSelected = { value ->
+                viewModel.setLowBatteryThreshold(value)
+                showLowBatteryDialog = false
             }
         )
     }

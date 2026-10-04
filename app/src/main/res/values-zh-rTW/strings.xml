@@ -92,4 +92,23 @@
     <string name="update_failed_network">無法連線到更新伺服器，請檢查網路後重試</string>
     <string name="update_failed_no_asset">該版本沒有提供可下載的安裝檔</string>
     <string name="update_failed_download">安裝檔下載失敗，請重試</string>
+    <!-- 低電量提醒 -->
+    <string name="settings_low_battery_alert">低電量提醒</string>
+    <string name="low_battery_channel_name">低電量提醒</string>
+    <string name="alert_low_battery_title">「%1$s」電量低</string>
+    <string name="alert_low_battery_text">電量 %1$d%%，低於提醒閾值 %2$d%%</string>
+
+    <!-- 裝置詳情頁 -->
+    <string name="detail_title">裝置詳情</string>
+    <string name="detail_status_connected">已連線</string>
+    <string name="detail_status_disconnected">未連線</string>
+    <string name="detail_status_connecting">連線中…</string>
+    <string name="detail_charging_state">充電狀態</string>
+    <string name="battery_not_charging">未充電</string>
+    <string name="detail_deep_read">重新讀取</string>
+    <string name="detail_deep_read_desc">建立一次 BLE 連線，讀取電量與充電狀態</string>
+    <string name="detail_device_missing">裝置不存在或已移除</string>
+
+    <!-- Widget 連線狀態 -->
+    <string name="widget_conn_state">連線狀態</string>
 </resources>

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.colorfuljuice.bluetoothbattery.utils.LowBatteryAlert
 
 /**
  * widget 的"心跳"接收器,由 [WidgetRefreshScheduler] 的闹钟、开机和应用升级广播拉起。
@@ -22,6 +23,8 @@ class WidgetTickReceiver : BroadcastReceiver() {
             WidgetHelper.ACTION_WIDGET_TICK -> {
                 WidgetHelper.refreshAllWidgets(context, force = true)
                 WidgetRefreshScheduler.scheduleNext(context)
+                // 心跳顺手做一遍低电量检查:App 没开也能发提醒
+                LowBatteryAlert.check(context)
             }
             // 重启 / 应用升级后 AlarmManager 里的闹钟会丢,这里补一个,
             // 并且无条件重绘一次(签名是持久化的,但布局/样式可能已经随版本变了)

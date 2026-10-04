@@ -142,16 +142,18 @@ class Widget2x2Dual : AppWidgetProvider() {
         val info1 = address1?.let { WidgetHelper.getBatteryInfo(context, it, forceSystem) }
         val battery1 = info1?.level
         val charging1 = info1?.isCharging == true
+        val connected1 = address1 != null && WidgetHelper.isDeviceConnected(context, address1)
         val type1: DeviceType = address1?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
 
         val name2 = address2?.let { WidgetHelper.getDeviceName(context, it) }
         val info2 = address2?.let { WidgetHelper.getBatteryInfo(context, it, forceSystem) }
         val battery2 = info2?.level
         val charging2 = info2?.isCharging == true
+        val connected2 = address2 != null && WidgetHelper.isDeviceConnected(context, address2)
         val type2: DeviceType = address2?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
 
         // 渲染签名:内容没变就别去打扰桌面进程
-        val signature = "$address1|$name1|$battery1|$charging1|$type1|$address2|$name2|$battery2|$charging2|$type2"
+        val signature = "$address1|$name1|$battery1|$charging1|$type1|$connected1|$address2|$name2|$battery2|$charging2|$type2|$connected2"
         if (skipIfUnchanged && WidgetHelper.getRenderSignature(context, SCOPE, widgetId) == signature) {
             Log.d(TAG, "skip unchanged render for widget $widgetId")
             return
@@ -168,6 +170,9 @@ class Widget2x2Dual : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_dual_pct1, if (battery1 != null) "$battery1%" else "?")
             views.setTextColor(R.id.widget_dual_pct1, color1)
             views.setViewVisibility(R.id.widget_dual_charging1, if (charging1) View.VISIBLE else View.GONE)
+            // 连接状态小圆点:绿=已连接,灰=未连接
+            views.setViewVisibility(R.id.widget_dual_conn1, View.VISIBLE)
+            views.setInt(R.id.widget_dual_conn1, "setColorFilter", WidgetHelper.getConnDotColor(connected1))
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_dual_icon1,
                 WidgetHelper.getDeviceTypeIconRes(type1))
 
@@ -180,6 +185,7 @@ class Widget2x2Dual : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_dual_name1, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_dual_pct1, "--")
             views.setViewVisibility(R.id.widget_dual_charging1, View.GONE)
+            views.setViewVisibility(R.id.widget_dual_conn1, View.GONE)
         }
 
         // Device 2
@@ -191,6 +197,9 @@ class Widget2x2Dual : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_dual_pct2, if (battery2 != null) "$battery2%" else "?")
             views.setTextColor(R.id.widget_dual_pct2, color2)
             views.setViewVisibility(R.id.widget_dual_charging2, if (charging2) View.VISIBLE else View.GONE)
+            // 连接状态小圆点:绿=已连接,灰=未连接
+            views.setViewVisibility(R.id.widget_dual_conn2, View.VISIBLE)
+            views.setInt(R.id.widget_dual_conn2, "setColorFilter", WidgetHelper.getConnDotColor(connected2))
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_dual_icon2,
                 WidgetHelper.getDeviceTypeIconRes(type2))
 
@@ -203,6 +212,7 @@ class Widget2x2Dual : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_dual_name2, context.getString(R.string.widget_tap_to_select))
             views.setTextViewText(R.id.widget_dual_pct2, "--")
             views.setViewVisibility(R.id.widget_dual_charging2, View.GONE)
+            views.setViewVisibility(R.id.widget_dual_conn2, View.GONE)
         }
 
         // 两个设备都配齐了 refresh 按钮才有意义

@@ -131,10 +131,11 @@ class Widget1x3 : AppWidgetProvider() {
         val info = address?.let { WidgetHelper.getBatteryInfo(context, it, forceSystem) }
         val battery = info?.level
         val charging = info?.isCharging == true
+        val connected = address != null && WidgetHelper.isDeviceConnected(context, address)
         val type: DeviceType = address?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
 
         // 渲染签名:tick 高频触发,内容没变就别去打扰桌面进程
-        val signature = "$address|$name|$battery|$charging|$type"
+        val signature = "$address|$name|$battery|$charging|$type|$connected"
         if (skipIfUnchanged && WidgetHelper.getRenderSignature(context, SCOPE, widgetId) == signature) {
             Log.d(TAG, "skip unchanged render for widget $widgetId")
             return
@@ -151,6 +152,7 @@ class Widget1x3 : AppWidgetProvider() {
             views.setImageViewResource(R.id.widget_device_icon, R.drawable.ic_device_other)
             // 未选设备时,refresh 按钮无意义,隐藏
             views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
+            views.setViewVisibility(R.id.widget_conn_dot, View.GONE)
         } else {
             // 文字颜色始终按电量等级;白色只用于电量条
             val color = WidgetHelper.getBatteryColor(battery)
@@ -159,6 +161,10 @@ class Widget1x3 : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_battery_text, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_battery_text, color)
             views.setViewVisibility(R.id.widget_charging_icon, if (charging) View.VISIBLE else View.GONE)
+
+            // 连接状态小圆点:绿=已连接,灰=未连接(放仓充电/离开范围时一目了然)
+            views.setViewVisibility(R.id.widget_conn_dot, View.VISIBLE)
+            views.setInt(R.id.widget_conn_dot, "setColorFilter", WidgetHelper.getConnDotColor(connected))
 
             WidgetHelper.setRemoteImageView(context, views, R.id.widget_device_icon,
                 WidgetHelper.getDeviceTypeIconRes(type))

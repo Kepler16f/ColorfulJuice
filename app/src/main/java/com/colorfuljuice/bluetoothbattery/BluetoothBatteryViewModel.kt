@@ -17,6 +17,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothBatteryService
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
+import com.colorfuljuice.bluetoothbattery.utils.LowBatteryAlert
 import com.colorfuljuice.bluetoothbattery.utils.UpdateManager
 import com.colorfuljuice.bluetoothbattery.utils.UpdateStatus
 import com.colorfuljuice.bluetoothbattery.widget.WidgetHelper
@@ -94,6 +95,11 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     private val _batteryChangeRefresh = MutableStateFlow(true)
     val batteryChangeRefresh: StateFlow<Boolean> = _batteryChangeRefresh.asStateFlow()
 
+    // 低电量提醒阈值(%),0 = 关闭。设置变更时镜像进 SharedPreferences,
+    // 供心跳/广播接收器里的 LowBatteryAlert 读取(那边不能 suspend 读 DataStore)。
+    private val _lowBatteryThreshold = MutableStateFlow(0)
+    val lowBatteryThreshold: StateFlow<Int> = _lowBatteryThreshold.asStateFlow()
+
     companion object {
         private const val TAG = "BluetoothBatteryViewModel"
         private val KEY_HIDDEN_DEVICES = stringPreferencesKey("hidden_devices")
@@ -103,6 +109,7 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
         private val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         private val KEY_USE_DYNAMIC_COLOR = stringPreferencesKey("use_dynamic_color")
         private val KEY_BATTERY_CHANGE_REFRESH = booleanPreferencesKey("battery_change_refresh")
+        private val KEY_LOW_BATTERY_THRESHOLD = intPreferencesKey("low_battery_threshold")
 
         /** 两次 widget 全量刷新之间的最小间隔,用于合并刷新风暴。 */
         private const val WIDGET_REFRESH_MIN_INTERVAL_MS = 1500L
@@ -144,6 +151,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             if (_batteryChangeRefresh.value) {
                 scheduleWidgetRefresh()
             }
+            // App 在前台时的实时低电量提醒(心跳路径兜底 App 没开的场景)
+            LowBatteryAlert.check(getApplication())
         }
     }
 
@@ -181,6 +190,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                     emptySet()
                 }
                 _hiddenDeviceAddresses.value = hidden
+                // 镜像给广播接收器侧的低电量提醒用
+                LowBatteryAlert.setHiddenDevices(getApplication(), json)
             }
         }
         viewModelScope.launch {
@@ -225,6 +236,14 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 preferences[KEY_BATTERY_CHANGE_REFRESH] ?: true
             }.collect { enabled ->
                 _batteryChangeRefresh.value = enabled
+            }
+        }
+        viewModelScope.launch {
+            dataStore.data.map { preferences ->
+                preferences[KEY_LOW_BATTERY_THRESHOLD] ?: 0
+            }.collect { threshold ->
+                _lowBatteryThreshold.value = threshold
+                LowBatteryAlert.setThreshold(getApplication(), threshold)
             }
         }
     }
@@ -323,6 +342,16 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
             _batteryChangeRefresh.value = enabled
             dataStore.edit { preferences ->
                 preferences[KEY_BATTERY_CHANGE_REFRESH] = enabled
+            }
+        }
+    }
+
+    fun setLowBatteryThreshold(threshold: Int) {
+        _lowBatteryThreshold.value = threshold
+        LowBatteryAlert.setThreshold(getApplication(), threshold)
+        viewModelScope.launch {
+            dataStore.edit { preferences ->
+                preferences[KEY_LOW_BATTERY_THRESHOLD] = threshold
             }
         }
     }

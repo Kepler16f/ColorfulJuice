@@ -132,9 +132,11 @@ class Widget2x2Single : AppWidgetProvider() {
         val charging = info?.isCharging == true
         val connected = address != null && WidgetHelper.isDeviceConnected(context, address)
         val type: DeviceType = address?.let { WidgetHelper.getDeviceType(context, it) } ?: DeviceType.OTHER
+        val (subLeft, subRight, subCase) = address?.let { WidgetHelper.getCachedSubBatteries(context, it) }
+            ?: Triple(null, null, null)
 
-        // 渲染签名:内容没变就别去打扰桌面进程
-        val signature = "$address|$name|$battery|$charging|$type|$connected"
+        // 渲染签名:内容没变就别去打扰桌面进程(子电量也要参与,否则左右耳变化会被跳过)
+        val signature = "$address|$name|$battery|$charging|$type|$connected|$subLeft|$subRight|$subCase"
         if (skipIfUnchanged && WidgetHelper.getRenderSignature(context, SCOPE, widgetId) == signature) {
             Log.d(TAG, "skip unchanged render for widget $widgetId")
             return
@@ -192,9 +194,14 @@ class Widget2x2Single : AppWidgetProvider() {
                 WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, 0, null)
             }
 
-            // Show sub-battery rows for headphones
-            if (type == DeviceType.HEADPHONE) {
-                views.setViewVisibility(R.id.widget_sub_batteries, View.GONE)
+            // 子电量行(耳机左/右/仓):读到子电量才显示,否则整组隐藏
+            val hasSub = type == DeviceType.HEADPHONE &&
+                    (subLeft != null || subRight != null || subCase != null)
+            views.setViewVisibility(R.id.widget_sub_batteries, if (hasSub) View.VISIBLE else View.GONE)
+            if (hasSub) {
+                renderSubRow(context, views, R.id.widget_left_ear_row, R.id.widget_left_ear_bar, R.id.widget_left_ear_pct, subLeft, charging)
+                renderSubRow(context, views, R.id.widget_right_ear_row, R.id.widget_right_ear_bar, R.id.widget_right_ear_pct, subRight, charging)
+                renderSubRow(context, views, R.id.widget_case_row, R.id.widget_case_bar, R.id.widget_case_pct, subCase, charging)
             }
             views.setViewVisibility(R.id.widget_refresh_btn, View.VISIBLE)
         }
@@ -234,5 +241,25 @@ class Widget2x2Single : AppWidgetProvider() {
 
         manager.updateAppWidget(widgetId, views)
         WidgetHelper.setRenderSignature(context, SCOPE, widgetId, signature)
+    }
+
+    /** 渲染一行子电量(左/右/仓)的进度条+百分比;level=null 时整行隐藏。 */
+    private fun renderSubRow(
+        context: Context,
+        views: RemoteViews,
+        rowId: Int,
+        barId: Int,
+        pctId: Int,
+        level: Int?,
+        charging: Boolean
+    ) {
+        if (level == null) {
+            views.setViewVisibility(rowId, View.GONE)
+            return
+        }
+        views.setViewVisibility(rowId, View.VISIBLE)
+        WidgetHelper.setBatteryBarSmall(context, views, barId, level, level, charging)
+        views.setTextViewText(pctId, "$level%")
+        views.setTextColor(pctId, WidgetHelper.getBatteryColor(level))
     }
 }

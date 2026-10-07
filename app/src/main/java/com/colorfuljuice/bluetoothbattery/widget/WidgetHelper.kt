@@ -120,32 +120,64 @@ object WidgetHelper {
         address: String,
         level: Int?,
         isCharging: Boolean,
-        chargingKnown: Boolean = true
+        chargingKnown: Boolean = true,
+        left: Int? = null,
+        right: Int? = null,
+        case: Int? = null
     ) {
         val safe = level ?: -1
-        val charging = if (chargingKnown) isCharging else getCachedCharging(context, address)
+        val cachePrefs = getCachePrefs(context)
+        val charging = if (chargingKnown) isCharging else cachePrefs.getBoolean("charging_$address", false)
+        // 值完全没变就跳过 commit:心跳每 60 秒都会打到这里,
+        // 一次 commit 是一次同步落盘,没必要为"没变化"反复 fsync。
+        // 时间戳不更新也无妨:缓存变"过期"后读取路径会自己反射重读,结果一样。
+        val subChanged = (left != null && cachePrefs.getInt("bat_left_$address", -1) != left) ||
+                (right != null && cachePrefs.getInt("bat_right_$address", -1) != right) ||
+                (case != null && cachePrefs.getInt("bat_case_$address", -1) != case)
+        if (!subChanged && cachePrefs.getInt("bat_$address", -2) == safe &&
+            cachePrefs.getBoolean("charging_$address", false) == charging
+        ) return
+
         // commit 而非 apply:widget 经常被系统拉起到新进程里读这份缓存,
         // apply 只是排队异步落盘,进程被回收时那次写入可能根本没落地。
-        getCachePrefs(context).edit()
+        val editor = cachePrefs.edit()
             .putInt("bat_$address", safe)
             .putBoolean("charging_$address", charging)
             .putLong("bat_${address}_ts", System.currentTimeMillis())
-            .commit()
+        // 子电量(左右耳/仓)只在真读到值时才更新,不用 null 冲掉已有数据
+        left?.let { editor.putInt("bat_left_$address", it) }
+        right?.let { editor.putInt("bat_right_$address", it) }
+        case?.let { editor.putInt("bat_case_$address", it) }
+        editor.commit()
+    }
+
+    /** 读缓存的左右耳/仓电量;无记录返回 null。 */
+    fun getCachedSubBatteries(context: Context, address: String): Triple<Int?, Int?, Int?> {
+        val prefs = getCachePrefs(context)
+        fun read(key: String): Int? = prefs.getInt(key, -1).takeIf { it in 0..100 }
+        return Triple(read("bat_left_$address"), read("bat_right_$address"), read("bat_case_$address"))
     }
 
     /** 批量写入,在 WidgetHelper 内统一打批,避免频繁 commit。充电态未知时保留缓存旧值。 */
-    fun saveBatterySnapshotToCache(context: Context, snapshot: Map<String, SystemBatteryInfo>) {
-        if (snapshot.isEmpty()) return
+    fun saveBatterySnapshotToCache(
+        context: Context,
+        devices: List<com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery>
+    ) {
+        if (devices.isEmpty()) return
         val cachePrefs = getCachePrefs(context)
         val editor = cachePrefs.edit()
         val now = System.currentTimeMillis()
-        for ((address, info) in snapshot) {
-            val level = if (info.level < 0) null else info.level
-            editor.putInt("bat_$address", level ?: -1)
-            val charging = if (info.chargingKnown) info.isCharging
+        for (device in devices) {
+            val address = device.address
+            val level = device.batteryLevel ?: -1
+            val charging = if (device.chargingKnown) device.isCharging
                            else cachePrefs.getBoolean("charging_$address", false)
+            editor.putInt("bat_$address", level)
             editor.putBoolean("charging_$address", charging)
             editor.putLong("bat_${address}_ts", now)
+            device.batteryLeft?.let { editor.putInt("bat_left_$address", it) }
+            device.batteryRight?.let { editor.putInt("bat_right_$address", it) }
+            device.batteryCase?.let { editor.putInt("bat_case_$address", it) }
         }
         editor.commit()
     }

@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
         permissionsGrantedState.value = allGranted
         if (allGranted) {
             viewModel?.loadPairedDevices()
+            // 首次授予蓝牙权限的这次启动也要补问通知权限,别拖到下次冷启动
+            maybeRequestNotificationPermission()
         }
     }
 

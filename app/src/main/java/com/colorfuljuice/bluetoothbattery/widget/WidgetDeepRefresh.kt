@@ -69,7 +69,8 @@ object WidgetDeepRefresh {
                     if (device.address in targets0 && level != null && level in 0..100) {
                         WidgetHelper.saveBatteryToCache(
                             appContext, device.address, level,
-                            device.isCharging, device.chargingKnown
+                            device.isCharging, device.chargingKnown,
+                            device.batteryLeft, device.batteryRight, device.batteryCase
                         )
                         changed.set(true)
                     }

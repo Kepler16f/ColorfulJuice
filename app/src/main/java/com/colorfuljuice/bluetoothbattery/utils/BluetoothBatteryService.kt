@@ -398,10 +398,10 @@ class BluetoothBatteryService(private val context: Context) {
         } catch (_: Exception) {}
 
         try {
-            if (bluetoothAdapter?.getProfileConnectionState(BluetoothProfile.HEADSET) == BluetoothProfile.STATE_CONNECTED) {
-                return true
-            }
-            if (bluetoothAdapter?.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothProfile.STATE_CONNECTED) {
+            // 兜底:GATT(LE)连接列表按设备判断。
+            // 注意不能用 getProfileConnectionState —— 那是"任一设备在线"的全局状态,
+            // 会导致连着任意耳机时把所有设备都误判成已连接。
+            if (bluetoothManager?.getConnectedDevices(BluetoothProfile.GATT)?.any { it.address == device.address } == true) {
                 return true
             }
         } catch (_: Exception) {}

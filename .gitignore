@@ -5,6 +5,7 @@
 /.idea
 *.iml
 local.properties
+.zcodeignore
 
 # Build outputs
 /build

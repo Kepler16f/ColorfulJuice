@@ -146,7 +146,10 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
                 device.address,
                 device.batteryLevel,
                 device.isCharging,
-                device.chargingKnown
+                device.chargingKnown,
+                device.batteryLeft,
+                device.batteryRight,
+                device.batteryCase
             )
             if (_batteryChangeRefresh.value) {
                 scheduleWidgetRefresh()
@@ -173,9 +176,8 @@ class BluetoothBatteryViewModel(application: Application) : AndroidViewModel(app
     fun syncWidgets() {
         val ctx = getApplication<Application>()
         // 先把当前最新电量快照一次性写进缓存(避免单个写入太多次 commit)
-        WidgetHelper.saveBatterySnapshotToCache(ctx, bluetoothService.getBatterySnapshot())
+        WidgetHelper.saveBatterySnapshotToCache(ctx, bluetoothService.devices.value)
         WidgetHelper.refreshAllWidgets(ctx)
-        Log.d(TAG, "syncWidgets: snapshot=${bluetoothService.getBatterySnapshot()}")
     }
 
     private fun loadPreferences() {

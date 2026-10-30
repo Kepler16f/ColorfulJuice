@@ -156,16 +156,14 @@ class Widget2x2Single : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
             views.setViewVisibility(R.id.widget_conn_dot, View.GONE)
         } else {
-            // 充电时电量条/圆环/闪电标志/百分比数字统一用白色,未充电时按电量等级分色
-            val color = WidgetHelper.getBatteryColor(battery, charging)
+            // 文字颜色始终按电量等级;白色只用于电量条/圆环
+            val color = WidgetHelper.getBatteryColor(battery)
 
             // Ring section
             views.setTextViewText(R.id.widget_ring_device_name, name)
             views.setTextViewText(R.id.widget_ring_battery_pct, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_ring_battery_pct, color)
             views.setViewVisibility(R.id.widget_ring_charging_icon, if (charging) View.VISIBLE else View.GONE)
-            // 闪电标志统一染成白色(drawable 默认是绿色)
-            views.setInt(R.id.widget_ring_charging_icon, "setColorFilter", WidgetHelper.CHARGING_COLOR)
 
             // 连接状态小圆点:绿=已连接,灰=未连接
             views.setViewVisibility(R.id.widget_conn_dot, View.VISIBLE)
@@ -188,8 +186,6 @@ class Widget2x2Single : AppWidgetProvider() {
 
             // Single battery bar
             views.setViewVisibility(R.id.widget_charging_icon, if (charging) View.VISIBLE else View.GONE)
-            // 闪电标志统一染成白色(drawable 默认是绿色)
-            views.setInt(R.id.widget_charging_icon, "setColorFilter", WidgetHelper.CHARGING_COLOR)
             if (battery != null) {
                 WidgetHelper.setBatteryBar(context, views, R.id.widget_fallback_bar, battery, battery, charging)
                 views.setTextViewText(R.id.widget_fallback_pct, "$battery%")
@@ -264,7 +260,6 @@ class Widget2x2Single : AppWidgetProvider() {
         views.setViewVisibility(rowId, View.VISIBLE)
         WidgetHelper.setBatteryBarSmall(context, views, barId, level, level, charging)
         views.setTextViewText(pctId, "$level%")
-        // 充电时数字同样用白色,和电量条保持一致
-        views.setTextColor(pctId, WidgetHelper.getBatteryColor(level, charging))
+        views.setTextColor(pctId, WidgetHelper.getBatteryColor(level))
     }
 }

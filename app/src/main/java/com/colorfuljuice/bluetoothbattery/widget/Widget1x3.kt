@@ -154,15 +154,13 @@ class Widget1x3 : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
             views.setViewVisibility(R.id.widget_conn_dot, View.GONE)
         } else {
-            // 充电时电量条/闪电标志/百分比数字统一用白色,未充电时按电量等级分色
-            val color = WidgetHelper.getBatteryColor(battery, charging)
+            // 文字颜色始终按电量等级;白色只用于电量条
+            val color = WidgetHelper.getBatteryColor(battery)
 
             views.setTextViewText(R.id.widget_device_name, name)
             views.setTextViewText(R.id.widget_battery_text, if (battery != null) "$battery%" else "?")
             views.setTextColor(R.id.widget_battery_text, color)
             views.setViewVisibility(R.id.widget_charging_icon, if (charging) View.VISIBLE else View.GONE)
-            // 闪电标志统一染成白色(drawable 默认是绿色)
-            views.setInt(R.id.widget_charging_icon, "setColorFilter", WidgetHelper.CHARGING_COLOR)
 
             // 连接状态小圆点:绿=已连接,灰=未连接(放仓充电/离开范围时一目了然)
             views.setViewVisibility(R.id.widget_conn_dot, View.VISIBLE)

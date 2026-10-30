@@ -163,15 +163,13 @@ class Widget2x2Dual : AppWidgetProvider() {
 
         // Device 1
         if (address1 != null) {
-            // 充电时电量条/闪电标志/百分比数字统一用白色,未充电时按电量等级分色
-            val color1 = WidgetHelper.getBatteryColor(battery1, charging1)
+            // 文字颜色始终按电量等级;白色只用于电量条
+            val color1 = WidgetHelper.getBatteryColor(battery1)
 
             views.setTextViewText(R.id.widget_dual_name1, name1)
             views.setTextViewText(R.id.widget_dual_pct1, if (battery1 != null) "$battery1%" else "?")
             views.setTextColor(R.id.widget_dual_pct1, color1)
             views.setViewVisibility(R.id.widget_dual_charging1, if (charging1) View.VISIBLE else View.GONE)
-            // 闪电标志统一染成白色(drawable 默认是绿色)
-            views.setInt(R.id.widget_dual_charging1, "setColorFilter", WidgetHelper.CHARGING_COLOR)
             // 连接状态小圆点:绿=已连接,灰=未连接
             views.setViewVisibility(R.id.widget_dual_conn1, View.VISIBLE)
             views.setInt(R.id.widget_dual_conn1, "setColorFilter", WidgetHelper.getConnDotColor(connected1))
@@ -192,15 +190,13 @@ class Widget2x2Dual : AppWidgetProvider() {
 
         // Device 2
         if (address2 != null) {
-            // 充电时电量条/闪电标志/百分比数字统一用白色,未充电时按电量等级分色
-            val color2 = WidgetHelper.getBatteryColor(battery2, charging2)
+            // 文字颜色始终按电量等级;白色只用于电量条
+            val color2 = WidgetHelper.getBatteryColor(battery2)
 
             views.setTextViewText(R.id.widget_dual_name2, name2)
             views.setTextViewText(R.id.widget_dual_pct2, if (battery2 != null) "$battery2%" else "?")
             views.setTextColor(R.id.widget_dual_pct2, color2)
             views.setViewVisibility(R.id.widget_dual_charging2, if (charging2) View.VISIBLE else View.GONE)
-            // 闪电标志统一染成白色(drawable 默认是绿色)
-            views.setInt(R.id.widget_dual_charging2, "setColorFilter", WidgetHelper.CHARGING_COLOR)
             // 连接状态小圆点:绿=已连接,灰=未连接
             views.setViewVisibility(R.id.widget_dual_conn2, View.VISIBLE)
             views.setInt(R.id.widget_dual_conn2, "setColorFilter", WidgetHelper.getConnDotColor(connected2))

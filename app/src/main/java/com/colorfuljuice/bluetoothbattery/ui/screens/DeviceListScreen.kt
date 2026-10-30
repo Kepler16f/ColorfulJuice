@@ -637,8 +637,3 @@ fun ErrorMessage(error: String) {
         )
     }
 }
-graphy.bodySmall,
-            color = ErrorRed
-        )
-    }
-}

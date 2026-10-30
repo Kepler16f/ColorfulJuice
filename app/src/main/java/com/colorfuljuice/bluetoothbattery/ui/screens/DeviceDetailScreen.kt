@@ -243,8 +243,3 @@ private fun DeepReadButton(device: BluetoothDeviceWithBattery, onConnect: () -> 
         )
     }
 }
-all,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}

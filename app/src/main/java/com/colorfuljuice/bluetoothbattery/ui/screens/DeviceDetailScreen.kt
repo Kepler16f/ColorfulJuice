@@ -32,13 +32,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.colorfuljuice.bluetoothbattery.BluetoothBatteryViewModel
 import com.colorfuljuice.bluetoothbattery.R
-import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryHigh
-import com.colorfuljuice.bluetoothbattery.ui.theme.ChargingGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ConnectedGreen
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
 import com.colorfuljuice.bluetoothbattery.utils.DeviceType
@@ -210,7 +209,8 @@ private fun StateCard(device: BluetoothDeviceWithBattery) {
                 Icon(
                     imageVector = Icons.Default.Bolt,
                     contentDescription = null,
-                    tint = ChargingGreen,
+                    // 充电时闪电标志统一用白色,和电量条/数字保持一致
+                    tint = Color.White,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -219,7 +219,7 @@ private fun StateCard(device: BluetoothDeviceWithBattery) {
                 text = chargingText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = if (device.isCharging) BatteryHigh else MaterialTheme.colorScheme.onSurface
+                color = if (device.isCharging) Color.White else MaterialTheme.colorScheme.onSurface
             )
         }
     }

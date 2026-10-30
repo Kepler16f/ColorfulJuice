@@ -416,8 +416,15 @@ object WidgetHelper {
         }
     }
 
+    /**
+     * 充电时统一的强调色。
+     * 充电状态下电量条、闪电标志、百分比数字统一用白色,不再按电量等级分色,
+     * 避免"条是白的、数字是绿的、闪电是绿的"这种不统一。
+     */
+    const val CHARGING_COLOR = 0xFFFFFFFF.toInt()
+
     fun getBatteryColor(level: Int?, isCharging: Boolean = false): Int {
-        if (isCharging) return 0xFFFFFFFF.toInt()
+        if (isCharging) return CHARGING_COLOR
         if (level == null) return 0xFF9E9E9E.toInt()
         return when {
             level > 60 -> 0xFF4CAF50.toInt()

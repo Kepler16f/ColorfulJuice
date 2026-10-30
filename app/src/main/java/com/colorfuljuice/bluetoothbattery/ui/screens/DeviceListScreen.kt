@@ -67,7 +67,6 @@ import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryHigh
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryLow
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryMedium
 import com.colorfuljuice.bluetoothbattery.ui.theme.BatteryUnknown
-import com.colorfuljuice.bluetoothbattery.ui.theme.ChargingGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ConnectedGreen
 import com.colorfuljuice.bluetoothbattery.ui.theme.ErrorRed
 import com.colorfuljuice.bluetoothbattery.utils.BluetoothDeviceWithBattery
@@ -523,7 +522,8 @@ fun SubBatteryRow(label: String, level: Int, isCharging: Boolean = false) {
                     Icon(
                         imageVector = Icons.Default.Bolt,
                         contentDescription = stringResource(R.string.charging),
-                        tint = ChargingGreen,
+                        // 充电时闪电标志与电量条、数字统一用白色
+                        tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(2.dp))
@@ -532,7 +532,7 @@ fun SubBatteryRow(label: String, level: Int, isCharging: Boolean = false) {
                     text = "$level%",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = when {
+                    color = if (isCharging) Color.White else when {
                         level > 60 -> BatteryHigh
                         level > 20 -> BatteryMedium
                         else -> BatteryLow
@@ -575,7 +575,8 @@ fun BatteryIndicator(batteryLevel: Int?, isCharging: Boolean = false) {
                     Icon(
                         imageVector = Icons.Default.Bolt,
                         contentDescription = stringResource(R.string.charging),
-                        tint = ChargingGreen,
+                        // 充电时闪电标志与电量条、数字统一用白色
+                        tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
@@ -584,7 +585,7 @@ fun BatteryIndicator(batteryLevel: Int?, isCharging: Boolean = false) {
                     text = if (batteryLevel != null) "$batteryLevel%" else stringResource(R.string.device_battery_unknown),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = when {
+                    color = if (isCharging) Color.White else when {
                         batteryLevel == null -> BatteryUnknown
                         batteryLevel > 60 -> BatteryHigh
                         batteryLevel > 20 -> BatteryMedium
@@ -632,6 +633,11 @@ fun ErrorMessage(error: String) {
         Text(
             text = error,
             style = MaterialTheme.typography.bodySmall,
+            color = ErrorRed
+        )
+    }
+}
+graphy.bodySmall,
             color = ErrorRed
         )
     }
